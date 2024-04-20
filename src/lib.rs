@@ -19,6 +19,7 @@ use oauth2::{
     ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, RefreshToken, RevocationUrl,
     Scope, TokenResponse as _, TokenUrl,
 };
+use reqwest::ClientBuilder;
 #[cfg(feature = "callback_server")]
 use {
     axum::{extract::Query, response::Html},
@@ -43,14 +44,43 @@ pub struct Client {
 }
 
 impl Client {
-    /// Create client with no refresh token
+    /// Create client
     pub fn new(
         client_id: &str,
         client_secret: &str,
         app_token: &str,
         redirect_uri: &str,
     ) -> Result<Self, ClientError> {
-        let http = reqwest::Client::new();
+        let http = reqwest::Client::builder()
+            .user_agent(concat!(
+                env!("CARGO_PKG_NAME"),
+                "/",
+                env!("CARGO_PKG_VERSION"),
+            ))
+            .build()
+            .unwrap();
+        let token = Token::new(client_id, client_secret, app_token, redirect_uri)?;
+
+        let slf = Self {
+            http,
+            token: Arc::new(token),
+        };
+
+        Ok(slf)
+    }
+
+    /// Create client with custom reqwest settings (user agent for example)
+    pub fn new_with_ua(
+        client_id: &str,
+        client_secret: &str,
+        app_token: &str,
+        redirect_uri: &str,
+        builder_cb: impl Fn(&mut ClientBuilder),
+    ) -> Result<Self, ClientError> {
+        let mut builder = reqwest::Client::builder();
+        builder_cb(&mut builder);
+        let http = builder.build().unwrap();
+
         let token = Token::new(client_id, client_secret, app_token, redirect_uri)?;
 
         let slf = Self {

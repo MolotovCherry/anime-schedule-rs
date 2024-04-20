@@ -70,7 +70,7 @@ impl Client {
     }
 
     /// Create client with custom reqwest settings (user agent for example)
-    pub fn new_with_ua(
+    pub fn new_with(
         client_id: &str,
         client_secret: &str,
         app_token: &str,

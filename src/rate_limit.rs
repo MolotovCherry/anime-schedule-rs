@@ -17,23 +17,23 @@ impl RateLimit {
         let remaining = headers
             .get("x-ratelimit-remaining")?
             .to_str()
-            .unwrap()
+            .ok()?
             .parse()
-            .unwrap();
+            .ok()?;
 
         let reset = headers
             .get("x-ratelimit-reset")?
             .to_str()
-            .unwrap()
+            .ok()?
             .parse()
-            .unwrap();
+            .ok()?;
 
         let limit = headers
             .get("x-ratelimit-limit")?
             .to_str()
-            .unwrap()
+            .ok()?
             .parse()
-            .unwrap();
+            .ok()?;
 
         let slf = Self {
             limit,

@@ -56,3 +56,5 @@ client.animelists().put().route("foo").etag("etag").episodes_seen(5).note("I lov
 ```
 
 If you see any bugs, please report them. Mostly these may be instances "null" appears in the api but was assumed to always exist in the deserialized types. While this was quickly tested with a bit of data to hopefully get a complete picture, this is not guaranteed to be always correct. Other than that, it should be feature complete and working.
+
+Usage of this crate is subject to the [api tos](https://animeschedule.net/api-terms-of-use)

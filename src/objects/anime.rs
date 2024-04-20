@@ -399,12 +399,11 @@ where
 
     let datetime = s
         .parse::<DateTime<Utc>>()
-        .map_err(|e| Error::custom(e.to_string()))?
-        .naive_utc();
+        .map_err(|e| Error::custom(e.to_string()))?;
 
-    Ok(Some(DateTime::from_naive_utc_and_offset(
-        datetime, japan_tz,
-    )))
+    let datetime = datetime.with_timezone(&japan_tz);
+
+    Ok(Some(datetime))
 }
 
 /// returns a datetime parsed into japan's fixedoffset
@@ -418,8 +417,9 @@ where
 
     let datetime = s
         .parse::<DateTime<Utc>>()
-        .map_err(|e| Error::custom(e.to_string()))?
-        .naive_utc();
+        .map_err(|e| Error::custom(e.to_string()))?;
 
-    Ok(DateTime::from_naive_utc_and_offset(datetime, japan_tz))
+    let datetime = datetime.with_timezone(&japan_tz);
+
+    Ok(datetime)
 }

@@ -141,91 +141,78 @@ impl AnimeGet {
     /// Fetches a paginated array of anime. Each page can contain up to 18 anime. Can be filtered further by using
     /// the optional parameters. Contains the page number and
     /// amount of anime that match the parameters.
-    pub fn page(mut self, page: Option<u64>) -> Self {
-        self.page = page.map(|p| p.clamp(1, u64::MAX));
+    pub fn page(mut self, page: u64) -> Self {
+        self.page = Some(page.clamp(1, u64::MAX));
         self
     }
 
     /// Filter by text. Applies to an anime's names. Failing that it tries genres, studios, sources and media types.
     /// Maximum length is 200.
-    pub fn q(mut self, q: Option<&str>) -> Self {
-        self.q = q.map(|q| {
-            let mut q = q.to_owned();
-            q.truncate(200);
-            q
-        });
+    pub fn q(mut self, q: &str) -> Self {
+        let mut q = q.to_owned();
+        q.truncate(200);
+
+        self.q = Some(q);
         self
     }
 
     /// The filter match type you want to use. Valid values are any and all. Any searches for anime that match any of
     /// the filters. All searches for ones that match all of the filters. Defaults to all.
-    pub fn mt(mut self, mt: Option<MatchType>) -> Self {
-        self.mt = mt;
+    pub fn mt(mut self, mt: MatchType) -> Self {
+        self.mt = Some(mt);
         self
     }
 
     /// The sorting type you want to use. Valid values are popularity, score, alphabetic and releaseDate. Defaults
     /// to popularity.
-    pub fn st(mut self, st: Option<SortingType>) -> Self {
-        self.st = st;
+    pub fn st(mut self, st: SortingType) -> Self {
+        self.st = Some(st);
         self
     }
 
     /// Filter by genre. Requires the genre's route/slug. For multiple genres add another genres query for each genre.
-    pub fn genres<'a, I: IntoIterator<Item = &'a str>>(mut self, genres: Option<I>) -> Self {
-        self.genres = genres.map(|g| g.into_iter().map(|s| s.to_owned()).collect());
+    pub fn genres<'a, I: IntoIterator<Item = &'a str>>(mut self, genres: I) -> Self {
+        self.genres = Some(genres.into_iter().map(|s| s.to_owned()).collect());
         self
     }
 
     /// Exclude a genre from the search. Requires the genre's route/slug. For multiple genres add another genres-exclude
     /// query for each genre.
-    pub fn genres_exclude<'a, I: IntoIterator<Item = &'a str>>(
-        mut self,
-        genres: Option<I>,
-    ) -> Self {
-        self.genres_exclude = genres.map(|g| g.into_iter().map(|s| s.to_owned()).collect());
+    pub fn genres_exclude<'a, I: IntoIterator<Item = &'a str>>(mut self, genres: I) -> Self {
+        self.genres_exclude = Some(genres.into_iter().map(|s| s.to_owned()).collect());
         self
     }
 
     /// Filter by genre. Requires the studio's route/slug. For multiple studios add another studios query for each studio.
-    pub fn studios<'a, I: IntoIterator<Item = &'a str>>(mut self, studios: Option<I>) -> Self {
-        self.studios = studios.map(|g| g.into_iter().map(|s| s.to_owned()).collect());
+    pub fn studios<'a, I: IntoIterator<Item = &'a str>>(mut self, studios: I) -> Self {
+        self.studios = Some(studios.into_iter().map(|s| s.to_owned()).collect());
         self
     }
 
     /// Exclude a studio from the search. Requires the studio's route/slug. For multiple studios add another studios-exclude
     /// query for each studio.
-    pub fn studios_exclude<'a, I: IntoIterator<Item = &'a str>>(
-        mut self,
-        studios: Option<I>,
-    ) -> Self {
-        self.studios_exclude = studios.map(|g| g.into_iter().map(|s| s.to_owned()).collect());
+    pub fn studios_exclude<'a, I: IntoIterator<Item = &'a str>>(mut self, studios: I) -> Self {
+        self.studios_exclude = Some(studios.into_iter().map(|s| s.to_owned()).collect());
         self
     }
 
     /// Filter by genre. Requires the source's route/slug. For multiple sources add another sources query for each source.
-    pub fn sources<'a, I: IntoIterator<Item = &'a str>>(mut self, sources: Option<I>) -> Self {
-        self.sources = sources.map(|g| g.into_iter().map(|s| s.to_owned()).collect());
+    pub fn sources<'a, I: IntoIterator<Item = &'a str>>(mut self, sources: I) -> Self {
+        self.sources = Some(sources.into_iter().map(|s| s.to_owned()).collect());
         self
     }
 
     /// Exclude a source from the search. Requires the source's route/slug. For multiple sources add another sources-exclude
     /// query for each source.
-    pub fn sources_exclude<'a, I: IntoIterator<Item = &'a str>>(
-        mut self,
-        sources: Option<I>,
-    ) -> Self {
-        self.sources_exclude = sources.map(|g| g.into_iter().map(|s| s.to_owned()).collect());
+    pub fn sources_exclude<'a, I: IntoIterator<Item = &'a str>>(mut self, sources: I) -> Self {
+        self.sources_exclude = Some(sources.into_iter().map(|s| s.to_owned()).collect());
         self
     }
 
     /// Filter by genre. Requires the media type's route/slug. For multiple media types add another media-types query for each
     /// media-type.
-    pub fn media_types<'a, I: IntoIterator<Item = &'a str>>(
-        mut self,
-        media_types: Option<I>,
-    ) -> Self {
-        self.media_types = media_types.map(|g| g.into_iter().map(|s| s.to_owned()).collect());
+    pub fn media_types<'a, I: IntoIterator<Item = &'a str>>(mut self, media_types: I) -> Self {
+        self.media_types = Some(media_types.into_iter().map(|s| s.to_owned()).collect());
         self
     }
 
@@ -233,47 +220,40 @@ impl AnimeGet {
     /// media-types-exclude query for each media type.
     pub fn media_types_exclude<'a, I: IntoIterator<Item = &'a str>>(
         mut self,
-        media_types: Option<I>,
+        media_types: I,
     ) -> Self {
-        self.media_types_exclude =
-            media_types.map(|g| g.into_iter().map(|s| s.to_owned()).collect());
+        self.media_types_exclude = Some(media_types.into_iter().map(|s| s.to_owned()).collect());
         self
     }
 
     /// Filter by year. For multiple years add another years query for each year.
-    pub fn years<I: IntoIterator<Item = u16>>(mut self, years: Option<I>) -> Self {
-        self.years = years.map(|g| g.into_iter().collect());
+    pub fn years<I: IntoIterator<Item = u16>>(mut self, years: I) -> Self {
+        self.years = Some(years.into_iter().collect());
         self
     }
 
     /// Exclude a year from the search. For multiple years add another years-exclude query for each year.
-    pub fn years_exclude<I: IntoIterator<Item = u16>>(mut self, years: Option<I>) -> Self {
-        self.years_exclude = years.map(|g| g.into_iter().collect());
+    pub fn years_exclude<I: IntoIterator<Item = u16>>(mut self, years: I) -> Self {
+        self.years_exclude = Some(years.into_iter().collect());
         self
     }
 
     /// Filter by calendar season. For multiple seasons add another seasons query for each season.
-    pub fn seasons<I: IntoIterator<Item = SeasonQuery>>(mut self, seasons: Option<I>) -> Self {
-        self.seasons = seasons.map(|g| g.into_iter().collect());
+    pub fn seasons<I: IntoIterator<Item = SeasonQuery>>(mut self, seasons: I) -> Self {
+        self.seasons = Some(seasons.into_iter().collect());
         self
     }
 
     /// Exclude a calendar season from the search. For multiple seasons add another seasons-exclude query for each season.
-    pub fn seasons_exclude<I: IntoIterator<Item = SeasonQuery>>(
-        mut self,
-        seasons: Option<I>,
-    ) -> Self {
-        self.seasons_exclude = seasons.map(|g| g.into_iter().collect());
+    pub fn seasons_exclude<I: IntoIterator<Item = SeasonQuery>>(mut self, seasons: I) -> Self {
+        self.seasons_exclude = Some(seasons.into_iter().collect());
         self
     }
 
     /// Filter by airing status. For multiple airing statuses add another airing-statuses query for each airing status.
     /// Valid values are finished, ongoing and upcoming.
-    pub fn airing_statuses<I: IntoIterator<Item = AirStatusQuery>>(
-        mut self,
-        seasons: Option<I>,
-    ) -> Self {
-        self.airing_statuses = seasons.map(|g| g.into_iter().collect());
+    pub fn airing_statuses<I: IntoIterator<Item = AirStatusQuery>>(mut self, seasons: I) -> Self {
+        self.airing_statuses = Some(seasons.into_iter().collect());
         self
     }
 
@@ -281,55 +261,52 @@ impl AnimeGet {
     /// for each airing status. Valid values are finished, ongoing and upcoming.
     pub fn airing_statuses_exclude<I: IntoIterator<Item = AirStatusQuery>>(
         mut self,
-        seasons: Option<I>,
+        seasons: I,
     ) -> Self {
-        self.airing_statuses_exclude = seasons.map(|g| g.into_iter().collect());
+        self.airing_statuses_exclude = Some(seasons.into_iter().collect());
         self
     }
 
     /// Filter by episode duration (in minutes.) Format is 0-∞.
-    pub fn duration(mut self, duration: Option<&str>) -> Self {
-        self.duration = duration.map(ToOwned::to_owned);
+    pub fn duration(mut self, duration: &str) -> Self {
+        self.duration = Some(duration.to_owned());
         self
     }
 
     /// Filter by episode count. Format is 0-∞.
-    pub fn episodes(mut self, episodes: Option<&str>) -> Self {
-        self.episodes = episodes.map(ToOwned::to_owned);
+    pub fn episodes(mut self, episodes: &str) -> Self {
+        self.episodes = Some(episodes.to_owned());
         self
     }
 
     /// Filter by stream. Requires the stream's name. For multiple streams add another streams query for each stream.
-    pub fn streams<I: IntoIterator<Item = StreamsQuery>>(mut self, streams: Option<I>) -> Self {
-        self.streams = streams.map(|g| g.into_iter().collect());
+    pub fn streams<I: IntoIterator<Item = StreamsQuery>>(mut self, streams: I) -> Self {
+        self.streams = Some(streams.into_iter().collect());
         self
     }
 
     /// Exclude a stream from the search. Requires the stream's name. For multiple streams add another streams-exclude
     /// query for each stream.
-    pub fn streams_exclude<I: IntoIterator<Item = StreamsQuery>>(
-        mut self,
-        streams: Option<I>,
-    ) -> Self {
-        self.streams_exclude = streams.map(|g| g.into_iter().collect());
+    pub fn streams_exclude<I: IntoIterator<Item = StreamsQuery>>(mut self, streams: I) -> Self {
+        self.streams_exclude = Some(streams.into_iter().collect());
         self
     }
 
     /// Filter by MyAnimeList ID. For multiple ids add another mal-ids query for each id.
-    pub fn mal_ids<I: IntoIterator<Item = u64>>(mut self, mal_ids: Option<I>) -> Self {
-        self.mal_ids = mal_ids.map(|g| g.into_iter().collect());
+    pub fn mal_ids<I: IntoIterator<Item = u64>>(mut self, mal_ids: I) -> Self {
+        self.mal_ids = Some(mal_ids.into_iter().collect());
         self
     }
 
     /// Filter by AniList ID. For multiple ids add another anilist-ids query for each id.
-    pub fn anilist_ids<I: IntoIterator<Item = u64>>(mut self, anilist_ids: Option<I>) -> Self {
-        self.anilist_ids = anilist_ids.map(|g| g.into_iter().collect());
+    pub fn anilist_ids<I: IntoIterator<Item = u64>>(mut self, anilist_ids: I) -> Self {
+        self.anilist_ids = Some(anilist_ids.into_iter().collect());
         self
     }
 
     /// Filter by AniDB ID. For multiple ids add another anidb-ids query for each id.
-    pub fn anidb_ids<I: IntoIterator<Item = u64>>(mut self, anidb_ids: Option<I>) -> Self {
-        self.anidb_ids = anidb_ids.map(|g| g.into_iter().collect());
+    pub fn anidb_ids<I: IntoIterator<Item = u64>>(mut self, anidb_ids: I) -> Self {
+        self.anidb_ids = Some(anidb_ids.into_iter().collect());
         self
     }
 

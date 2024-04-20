@@ -56,12 +56,11 @@ impl CategoryGet {
     }
 
     /// Filter by text. Maximum length is 200.
-    pub fn q(mut self, q: Option<&str>) -> Self {
-        self.q = q.map(|q| {
-            let mut q = q.to_owned();
-            q.truncate(200);
-            q
-        });
+    pub fn q(mut self, q: &str) -> Self {
+        let mut q = q.to_owned();
+        q.truncate(200);
+
+        self.q = Some(q);
         self
     }
 

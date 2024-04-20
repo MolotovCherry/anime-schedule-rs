@@ -50,27 +50,27 @@ pub struct TimetablesGet {
 }
 
 impl TimetablesGet {
-    pub fn air_type(mut self, air_type: Option<AirTypeQuery>) -> Self {
-        self.air_type = air_type;
+    pub fn air_type(mut self, air_type: AirTypeQuery) -> Self {
+        self.air_type = Some(air_type);
         self
     }
 
     /// The week's number in a year. Requires the year query parameter.
-    pub fn week(mut self, week: Option<u16>) -> Self {
-        self.week = week;
+    pub fn week(mut self, week: u16) -> Self {
+        self.week = Some(week);
         self
     }
 
     /// The year the requested week belongs in. Requires the week query parameter.
-    pub fn year(mut self, year: Option<u16>) -> Self {
-        self.year = year;
+    pub fn year(mut self, year: u16) -> Self {
+        self.year = Some(year);
         self
     }
 
     /// A IATA timezone string. Converts all of the times to that timezones. Defaults to Europe/London (GMT/BST.)
     /// Warning: It auto-converts for daylights savings if the target timezone has it.
-    pub fn tz(mut self, tz: Option<&str>) -> Self {
-        self.tz = tz.map(ToOwned::to_owned);
+    pub fn tz(mut self, tz: &str) -> Self {
+        self.tz = Some(tz.to_owned());
         self
     }
 

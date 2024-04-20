@@ -1,9 +1,8 @@
-pub mod anime;
-pub mod category;
+pub mod api;
 pub mod errors;
 pub mod objects;
 pub mod rate_limit;
-pub mod timetables;
+
 mod utils;
 
 use std::{
@@ -27,7 +26,8 @@ use {
 };
 
 use crate::{
-    anime::AnimeApi, category::CategoryApi, errors::TokenError, timetables::TimetablesApi,
+    api::{anime::AnimeApi, category::CategoryApi, timetables::TimetablesApi},
+    errors::TokenError,
 };
 
 const API_URL: &str = "https://animeschedule.net/api/v3";

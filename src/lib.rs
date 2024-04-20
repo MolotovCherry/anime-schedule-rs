@@ -1,23 +1,34 @@
 pub mod anime;
 pub mod category;
+pub mod errors;
 pub mod objects;
+pub mod rate_limit;
 pub mod timetables;
+mod utils;
 
-use std::sync::{Arc, Mutex};
-use std::{future::Future, time::Duration};
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
-use axum::{extract::Query, response::Html};
 use chrono::Utc;
-use futures::future::BoxFuture;
 use oauth2::{
     basic::BasicClient, reqwest::async_http_client, AccessToken, AuthUrl, AuthorizationCode,
     ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, RefreshToken, RevocationUrl,
     Scope, TokenResponse as _, TokenUrl,
 };
-use serde::Deserialize;
-use tokio::{sync::oneshot, task};
+#[cfg(feature = "callback_server")]
+use {
+    axum::{extract::Query, response::Html},
+    serde::Deserialize,
+    tokio::{sync::oneshot, task},
+};
 
-use self::{anime::AnimeApi, category::CategoryApi, timetables::TimetablesApi};
+use crate::{
+    anime::AnimeApi, category::CategoryApi, errors::TokenError, timetables::TimetablesApi,
+};
 
 const API_URL: &str = "https://animeschedule.net/api/v3";
 
@@ -80,9 +91,15 @@ pub struct Code(String);
 pub struct State(String);
 
 pub type Callback = Box<
-    dyn Fn(reqwest::Url) -> BoxFuture<'static, Result<(Code, State), Box<dyn std::error::Error>>>
-        + Send
-        + Sync
+    dyn Fn(
+            reqwest::Url,
+        ) -> Pin<
+            Box<
+                dyn Future<Output = Result<(Code, State), Box<dyn std::error::Error>>>
+                    + Send
+                    + 'static,
+            >,
+        > + Send
         + 'static,
 >;
 
@@ -120,7 +137,12 @@ impl Token {
             refresh_token: Mutex::new(None),
             expires_at: Mutex::new(None),
             scopes: Mutex::new(Vec::new()),
+            #[cfg(feature = "callback_server")]
             callback: tokio::sync::Mutex::new(Self::make_callback("127.0.0.1", 8888)),
+            #[cfg(not(feature = "callback_server"))]
+            callback: tokio::sync::Mutex::new(Box::new(|_| {
+                unimplemented!("Callback not implemented")
+            })),
         };
 
         Ok(slf)
@@ -152,12 +174,14 @@ impl Token {
     }
 
     /// set the uri / port callback server listens on
+    #[cfg(feature = "callback_server")]
     pub async fn set_callback_server(&self, host: &str, port: u16) {
         let mut lock = self.callback.lock().await;
         *lock = Self::make_callback(host, port);
     }
 
     /// Open webbrowser with url
+    #[cfg(feature = "callback_server")]
     fn make_callback(host: &str, port: u16) -> Callback {
         let host = host.to_owned();
 
@@ -209,8 +233,8 @@ impl Token {
     }
 
     pub async fn set_callback<
-        F: Fn(reqwest::Url) -> A + Send + Sync + 'static,
-        A: Future<Output = Result<(Code, State), Box<dyn std::error::Error>>> + 'static + Send,
+        F: Fn(reqwest::Url) -> Fut + Send + 'static,
+        Fut: Future<Output = Result<(Code, State), Box<dyn std::error::Error>>> + 'static + Send,
     >(
         &mut self,
         f: F,
@@ -360,8 +384,9 @@ impl Token {
             .url();
 
         let callback = self.callback.lock().await;
-        let Ok((res_code, res_state)) = callback(auth_url).await else {
-            return Err(TokenError::Callback);
+        let (res_code, res_state) = match callback(auth_url).await {
+            Ok(v) => v,
+            Err(e) => return Err(TokenError::Callback(e.to_string())),
         };
 
         // ensure state is correct
@@ -393,26 +418,4 @@ impl Token {
 
         Ok(())
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum TokenError {
-    #[error("failed to revoke token")]
-    Revoke(String),
-    #[error("callback failed")]
-    Callback,
-    #[error("refresh token is already expired")]
-    Expired,
-    #[error("{0}")]
-    OAuth2(String),
-    #[error("failed to refresh token")]
-    Refresh,
-    #[error("failed to generate access token")]
-    Access,
-    #[error("failed to parse uri")]
-    Parse(#[from] ::oauth2::url::ParseError),
-    #[error("http request failed: {0:?}")]
-    Http(#[from] reqwest::Error),
-    #[error("state verification failed")]
-    StateMismatch,
 }

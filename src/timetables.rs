@@ -3,7 +3,10 @@ use serde::Serialize;
 use serde_with::skip_serializing_none;
 
 use crate::{
-    objects::{AirTypeQuery, RateLimit, Timetables},
+    errors::ApiError,
+    objects::{AirTypeQuery, Timetables},
+    rate_limit::RateLimit,
+    utils::IsJson as _,
     Client, API_URL,
 };
 
@@ -75,7 +78,7 @@ impl TimetablesGet {
     }
 
     /// Fetch the data of multiple categories by query
-    pub async fn send(self) -> Result<(RateLimit, Timetables), reqwest::Error> {
+    pub async fn send(self) -> Result<(RateLimit, Timetables), ApiError> {
         let url = if let Some(air_type) = self.air_type {
             API_TIMETABLES_AIR_TYPE.replace("{airType}", air_type.into())
         } else {
@@ -97,7 +100,13 @@ impl TimetablesGet {
         let headers = response.headers();
         let limit = RateLimit::new(headers);
 
-        let timetable: Timetables = response.json().await?;
+        let text = response.text().await?;
+
+        if !text.is_json() {
+            return Err(ApiError::Api(text));
+        }
+
+        let timetable: Timetables = serde_json::from_str(&text)?;
 
         Ok((limit, timetable))
     }

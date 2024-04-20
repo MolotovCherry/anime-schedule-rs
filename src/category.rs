@@ -3,7 +3,10 @@ use serde::Serialize;
 use serde_with::skip_serializing_none;
 
 use crate::{
-    objects::{Categories, Category, RateLimit},
+    errors::ApiError,
+    objects::{Categories, Category},
+    rate_limit::RateLimit,
+    utils::IsJson as _,
     Client, API_URL,
 };
 
@@ -65,7 +68,7 @@ impl CategoryGet {
     }
 
     /// Fetch the data of multiple categories by query
-    pub async fn send(self) -> Result<(RateLimit, Categories), reqwest::Error> {
+    pub async fn send(self) -> Result<(RateLimit, Categories), ApiError> {
         let url = API_CATEGORITES_TYPE.replace("{categoryType}", &self.category_type);
 
         let query = serde_qs::to_string(&self).unwrap();
@@ -83,7 +86,13 @@ impl CategoryGet {
         let headers = response.headers();
         let limit = RateLimit::new(headers);
 
-        let category: Categories = response.json().await?;
+        let text = response.text().await?;
+
+        if !text.is_json() {
+            return Err(ApiError::Api(text));
+        }
+
+        let category: Categories = serde_json::from_str(&text)?;
 
         Ok((limit, category))
     }
@@ -98,7 +107,7 @@ pub struct CategorySlug {
 
 impl CategorySlug {
     /// Fetch the data of a specific category
-    pub async fn send(self) -> Result<(RateLimit, Category), reqwest::Error> {
+    pub async fn send(self) -> Result<(RateLimit, Category), ApiError> {
         let url = API_CATEGORITES_TYPE_SLUG
             .replace("{categoryType}", &self.category_type)
             .replace("{slug}", &self.slug);
@@ -114,7 +123,13 @@ impl CategorySlug {
         let headers = response.headers();
         let limit = RateLimit::new(headers);
 
-        let category: Category = response.json().await?;
+        let text = response.text().await?;
+
+        if !text.is_json() {
+            return Err(ApiError::Api(text));
+        }
+
+        let category: Category = serde_json::from_str(&text)?;
 
         Ok((limit, category))
     }

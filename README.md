@@ -25,6 +25,10 @@ client.token.set_callback(|url| async {
     (Code("".to_owned()), State("".to_owned()))
 });
 
+// When dealing with access/refresh tokens, please be aware
+// that the site api sets both to 3600
+// if you pass this threashold, you are required to regenerate the tokens
+
 // regenerate tokens from scratch
 client.token.regenerate().await;
 

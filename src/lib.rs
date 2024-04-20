@@ -147,12 +147,14 @@ pub type Callback = Box<
         + 'static,
 >;
 
+/// Note that both access and refresh tokens are only valid for 3600 after issuance
 pub struct Token {
     client: BasicClient,
     app_token: String,
     access_token: Mutex<Option<AccessToken>>,
     refresh_token: Mutex<Option<RefreshToken>>,
-    // time in utc seconds when access token will expire
+    // time in utc seconds when access and refresh token will expire
+    // current api expiration is now + 3600
     expires_at: Mutex<Option<u64>>,
     scopes: Mutex<Vec<Scope>>,
     callback: tokio::sync::Mutex<Callback>,
@@ -342,25 +344,24 @@ impl Token {
 
     /// Automatically regnerate token if required
     /// Does nothing if there's no need to regenerate
+    ///
+    /// Note that both access and refresh tokens are only valid for 3600
     pub async fn try_refresh(&self) -> Result<(), TokenError> {
+        // current access and refresh token expiry are the same: 3600
+
         let expires_at = *self.expires_at.lock().unwrap();
         if let Some(expires_at) = expires_at {
             let now = Utc::now().timestamp() as u64;
 
             // access token is expired, and refresh token exists, exchange refresh token
-            if now >= expires_at && self.refresh_token.lock().unwrap().is_some() {
-                if self.refresh().await.is_err() {
-                    self.regenerate().await?;
-                }
-            }
-            // access token is empty, regenerate whole thing
-            else if self.access_token.lock().unwrap().is_none()
+            if now >= expires_at
+                || self.access_token.lock().unwrap().is_none()
                 || self.refresh_token.lock().unwrap().is_none()
             {
                 self.regenerate().await?;
             }
-        } else if self.refresh_token().is_some() {
-            // no expiry, but refresh token is set
+        } else if self.refresh_token().is_some() && self.access_token().is_none() {
+            // try refresh token, if that fails we need to re-do it all
             if self.refresh().await.is_err() {
                 self.regenerate().await?;
             }

@@ -13,35 +13,34 @@ pub struct RateLimit {
 }
 
 impl RateLimit {
-    pub(crate) fn new(headers: &HeaderMap) -> Self {
+    pub(crate) fn new(headers: &HeaderMap) -> Option<Self> {
         let remaining = headers
-            .get("x-ratelimit-remaining")
-            .expect("x-ratelimit-remaining missing")
+            .get("x-ratelimit-remaining")?
             .to_str()
             .unwrap()
             .parse()
             .unwrap();
 
         let reset = headers
-            .get("x-ratelimit-reset")
-            .expect("x-ratelimit-reset missing")
+            .get("x-ratelimit-reset")?
             .to_str()
             .unwrap()
             .parse()
             .unwrap();
 
         let limit = headers
-            .get("x-ratelimit-limit")
-            .expect("x-ratelimit-limit")
+            .get("x-ratelimit-limit")?
             .to_str()
             .unwrap()
             .parse()
             .unwrap();
 
-        Self {
+        let slf = Self {
             limit,
             remaining,
             reset,
-        }
+        };
+
+        Some(slf)
     }
 }

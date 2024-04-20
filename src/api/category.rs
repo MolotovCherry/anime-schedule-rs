@@ -94,7 +94,7 @@ impl CategoryGet {
 
         let category: Categories = serde_json::from_str(&text)?;
 
-        Ok((limit, category))
+        Ok((limit.unwrap(), category))
     }
 }
 
@@ -131,6 +131,6 @@ impl CategorySlug {
 
         let category: Category = serde_json::from_str(&text)?;
 
-        Ok((limit, category))
+        Ok((limit.unwrap(), category))
     }
 }

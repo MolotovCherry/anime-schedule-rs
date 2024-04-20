@@ -1,9 +1,31 @@
+use std::{collections::HashMap, ops::Deref};
+
 use chrono::prelude::*;
 
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use strum::IntoStaticStr;
 
-#[derive(Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct Route(pub String);
+impl Deref for Route {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UserListAnime {
+    pub user_id: String,
+    pub shows: HashMap<Route, ListAnime>,
+    pub custom_lists: Option<Vec<CustomList>>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ListAnime {
     /// The unique URL slug of the anime.
@@ -24,10 +46,11 @@ pub struct ListAnime {
     /// The date the anime was finished watching.
     pub end_date: DateTime<Utc>,
     /// User note. Max length is 1000.
-    pub note: String,
+    pub note: Option<String>,
 }
 
-#[derive(Serialize, Clone)]
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ListAnimePut {
     /// The list the anime belongs to.
@@ -36,8 +59,6 @@ pub struct ListAnimePut {
     pub episodes_seen: Option<u64>,
     /// The user's manually inputted score of the anime. From 0 to a 100.
     pub manual_score: Option<u8>,
-    /// The user's automatically calculated average score of the anime. From 0 to a 100.
-    pub average_auto_score: Option<u8>,
     /// Whether to use automatic score calculation with multiple scores.
     pub use_auto_scores: Option<bool>,
     pub auto_scores: Option<AutoScores>,
@@ -47,9 +68,18 @@ pub struct ListAnimePut {
     pub end_date: Option<DateTime<Utc>>,
     /// User note. Max length is 1000.
     pub note: Option<String>,
+    /// Indicates a non-standard operation. Used only in PUT requests. Valid values are deleteNote.
+    pub action: Option<Action>,
 }
 
-#[derive(Serialize, Deserialize, Clone, IntoStaticStr, PartialEq)]
+#[non_exhaustive]
+#[derive(Debug, Serialize, Copy, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum Action {
+    DeleteNode,
+}
+
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, IntoStaticStr, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum ListStatus {
     Completed,
@@ -59,7 +89,7 @@ pub enum ListStatus {
     ToWatch,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AutoScores {
     pub score_one: AutoScore,
@@ -68,7 +98,7 @@ pub struct AutoScores {
     pub score_four: AutoScore,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AutoScore {
     /// The score's text/meaning.
@@ -77,7 +107,7 @@ pub struct AutoScore {
     pub score: u8,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct CustomList {
     /// The name of the custom list.
     pub name: String,

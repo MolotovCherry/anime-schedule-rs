@@ -108,6 +108,6 @@ impl TimetablesGet {
 
         let timetable: Timetables = serde_json::from_str(&text)?;
 
-        Ok((limit, timetable))
+        Ok((limit.unwrap(), timetable))
     }
 }

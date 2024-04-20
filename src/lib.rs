@@ -26,7 +26,10 @@ use {
 };
 
 use crate::{
-    api::{anime::AnimeApi, category::CategoryApi, timetables::TimetablesApi},
+    api::{
+        anime::AnimeApi, animelists::AnimeListsApi, category::CategoryApi,
+        timetables::TimetablesApi,
+    },
     errors::TokenError,
 };
 
@@ -60,6 +63,11 @@ impl Client {
     /// Fetch anime data
     pub fn anime(&self) -> AnimeApi {
         AnimeApi::new(self.clone())
+    }
+
+    /// Fetch anime data
+    pub fn animelists(&self) -> AnimeListsApi {
+        AnimeListsApi::new(self.clone())
     }
 
     /// Fetch category data

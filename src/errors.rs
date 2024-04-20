@@ -28,4 +28,12 @@ pub enum ApiError {
     Api(String),
     #[error("{0}")]
     Json(#[from] serde_json::Error),
+    #[error("access token is missing")]
+    AccessToken,
+    #[error("api route requires etag")]
+    Etag,
+    #[error("api requires xml to be set")]
+    Xml,
+    #[error("api requires route")]
+    Route,
 }

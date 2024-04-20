@@ -337,7 +337,7 @@ impl AnimeGet {
 
         let page: AnimePage = serde_json::from_str(&text)?;
 
-        Ok((limit, page))
+        Ok((limit.unwrap(), page))
     }
 }
 
@@ -370,6 +370,6 @@ impl AnimeSlug {
 
         let anime: Anime = serde_json::from_str(&text)?;
 
-        Ok((limit, anime))
+        Ok((limit.unwrap(), anime))
     }
 }

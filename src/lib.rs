@@ -137,12 +137,13 @@ impl Token {
             refresh_token: Mutex::new(None),
             expires_at: Mutex::new(None),
             scopes: Mutex::new(Vec::new()),
-            #[cfg(feature = "callback_server")]
-            callback: tokio::sync::Mutex::new(Self::make_callback("127.0.0.1", 8888)),
-            #[cfg(not(feature = "callback_server"))]
-            callback: tokio::sync::Mutex::new(Box::new(|_| {
-                unimplemented!("Callback not implemented")
-            })),
+
+            callback: tokio::sync::Mutex::new(
+                #[cfg(feature = "callback_server")]
+                Self::make_callback("127.0.0.1", 8888),
+                #[cfg(not(feature = "callback_server"))]
+                Box::new(|_| unimplemented!("oauth2 callback not implemented")),
+            ),
         };
 
         Ok(slf)

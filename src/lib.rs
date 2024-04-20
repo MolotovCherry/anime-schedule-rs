@@ -100,9 +100,9 @@ pub enum ClientError {
 }
 
 #[derive(Debug)]
-pub struct Code(String);
+pub struct Code(pub String);
 #[derive(Debug)]
-pub struct State(String);
+pub struct State(pub String);
 
 pub type Callback = Box<
     dyn Fn(

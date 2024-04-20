@@ -1,3 +1,5 @@
-# Anime Schedule Api
+# AnimeSchedule Api
 
-Anime Schedule API v3 implemented in Rust
+A complete AnimeSchedule Api v3 implemented in Rust
+
+If you see any bugs, please report them. Other than that, it should be feature complete and working.

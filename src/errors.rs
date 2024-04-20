@@ -36,4 +36,6 @@ pub enum ApiError {
     Xml,
     #[error("api requires route")]
     Route,
+    #[error("api requires user id")]
+    UserId,
 }

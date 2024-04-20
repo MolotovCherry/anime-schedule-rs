@@ -1,3 +1,4 @@
+pub mod account;
 pub mod anime;
 pub mod animelists;
 pub mod category;

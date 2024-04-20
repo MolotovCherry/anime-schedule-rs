@@ -12,6 +12,7 @@ use std::{
     time::Duration,
 };
 
+use self::api::account::AccountApi;
 use chrono::Utc;
 use oauth2::{
     basic::BasicClient, reqwest::async_http_client, AccessToken, AuthUrl, AuthorizationCode,
@@ -78,6 +79,11 @@ impl Client {
     /// Fetch a week's timetable anime
     pub fn timetables(&self) -> TimetablesApi {
         TimetablesApi::new(self.clone())
+    }
+
+    /// Fetch account details
+    pub fn account(&self) -> AccountApi {
+        AccountApi::new(self.clone())
     }
 
     pub fn token(&self) -> &Token {

@@ -4,7 +4,8 @@ use serde_with::skip_serializing_none;
 
 use crate::{
     objects::{
-        AirStatusQuery, Anime, AnimePage, MatchType, SeasonQuery, SortingType, StreamsQuery,
+        AirStatusQuery, Anime, AnimePage, MatchType, RateLimit, SeasonQuery, SortingType,
+        StreamsQuery,
     },
     Client, API_URL,
 };
@@ -310,22 +311,25 @@ impl AnimeGet {
         self
     }
 
-    pub async fn send(self) -> Result<AnimePage, reqwest::Error> {
+    pub async fn send(self) -> Result<(RateLimit, AnimePage), reqwest::Error> {
         let query = serde_qs::to_string(&self).unwrap();
 
         let url = format!("{API_ANIME}?{query}");
 
-        let page: AnimePage = self
+        let response = self
             .client
             .http
             .get(url)
             .bearer_auth(self.client.token.app_token())
             .send()
-            .await?
-            .json()
             .await?;
 
-        Ok(page)
+        let headers = response.headers();
+        let limit = RateLimit::new(headers);
+
+        let page: AnimePage = response.json().await?;
+
+        Ok((limit, page))
     }
 }
 
@@ -336,19 +340,22 @@ pub struct AnimeSlug {
 }
 
 impl AnimeSlug {
-    pub async fn send(self) -> Result<Anime, reqwest::Error> {
+    pub async fn send(self) -> Result<(RateLimit, Anime), reqwest::Error> {
         let url = API_ANIME_SLUG.replace("{slug}", &self.slug);
 
-        let anime: Anime = self
+        let response = self
             .client
             .http
             .get(url)
             .bearer_auth(self.client.token.app_token())
             .send()
-            .await?
-            .json()
             .await?;
 
-        Ok(anime)
+        let headers = response.headers();
+        let limit = RateLimit::new(headers);
+
+        let anime = response.json().await?;
+
+        Ok((limit, anime))
     }
 }

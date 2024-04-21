@@ -216,7 +216,7 @@ impl Auth {
         F: Fn(reqwest::Url, State) -> Fut + Send + 'static,
         Fut: Future<Output = Result<(Code, State), Box<dyn std::error::Error>>> + 'static + Send,
     >(
-        &mut self,
+        &self,
         f: F,
     ) {
         let mut lock = self.callback.lock().await;

@@ -7,7 +7,7 @@ use crate::{
     objects::{Categories, Category},
     rate_limit::RateLimit,
     utils::IsJson as _,
-    AnimeScheduleClient, API_URL,
+    AnimeScheduleClient, API_URL, RUNTIME,
 };
 
 const API_CATEGORITES_TYPE: &str = formatcp!("{API_URL}/categories/{{categoryType}}");
@@ -96,6 +96,10 @@ impl CategoryGet {
 
         Ok((limit.unwrap(), category))
     }
+
+    pub fn send_blocking(self) -> Result<(RateLimit, Categories), ApiError> {
+        RUNTIME.block_on(self.send())
+    }
 }
 
 /// Fetch the data of a specific category
@@ -132,5 +136,9 @@ impl CategorySlug {
         let category: Category = serde_json::from_str(&text)?;
 
         Ok((limit.unwrap(), category))
+    }
+
+    pub fn send_blocking(self) -> Result<(RateLimit, Category), ApiError> {
+        RUNTIME.block_on(self.send())
     }
 }

@@ -7,7 +7,7 @@ use crate::{
     objects::{AirTypeQuery, Timetables},
     rate_limit::RateLimit,
     utils::IsJson as _,
-    AnimeScheduleClient, API_URL,
+    AnimeScheduleClient, API_URL, RUNTIME,
 };
 
 const API_TIMETABLES: &str = formatcp!("{API_URL}/timetables");
@@ -109,5 +109,9 @@ impl TimetablesGet {
         let timetable: Timetables = serde_json::from_str(&text)?;
 
         Ok((limit.unwrap(), timetable))
+    }
+
+    pub fn send_blocking(self) -> Result<(RateLimit, Timetables), ApiError> {
+        RUNTIME.block_on(self.send())
     }
 }

@@ -9,7 +9,7 @@ use crate::{
     objects::{Action, AutoScores, ListAnime, ListAnimePut, ListStatus, UserListAnime},
     rate_limit::RateLimit,
     utils::IsJson as _,
-    AnimeScheduleClient, API_URL,
+    AnimeScheduleClient, API_URL, RUNTIME,
 };
 
 const API_ANIMELISTS_USERID_ROUTE: &str = formatcp!("{API_URL}/animelists/{{userId}}/{{route}}");
@@ -119,6 +119,10 @@ impl AnimeListsGet {
 
         Ok((limit.unwrap(), user_list))
     }
+
+    pub fn send_blocking(self) -> Result<(RateLimit, UserListAnime), ApiError> {
+        RUNTIME.block_on(self.send())
+    }
 }
 
 #[derive(Debug)]
@@ -197,6 +201,10 @@ impl AnimeListsGetRoute {
         let listanime: ListAnime = serde_json::from_str(&text)?;
 
         Ok((limit.unwrap(), etag, listanime))
+    }
+
+    pub fn send_blocking(self) -> Result<(RateLimit, ETag, ListAnime), ApiError> {
+        RUNTIME.block_on(self.send())
     }
 }
 
@@ -300,6 +308,10 @@ impl AnimeListsPut {
         }
 
         Ok(limit.unwrap())
+    }
+
+    pub fn send_blocking(self) -> Result<RateLimit, ApiError> {
+        RUNTIME.block_on(self.send())
     }
 }
 
@@ -434,6 +446,10 @@ impl AnimeListsPutRoute {
 
         Ok(limit.unwrap())
     }
+
+    pub fn send_blocking(self) -> Result<RateLimit, ApiError> {
+        RUNTIME.block_on(self.send())
+    }
 }
 
 /// Deletes a specific List Anime object from the user's anime list. Route is the anime's URL slug.
@@ -499,5 +515,9 @@ impl AnimeListsDelete {
         }
 
         Ok(limit.unwrap())
+    }
+
+    pub fn send_blocking(self) -> Result<RateLimit, ApiError> {
+        RUNTIME.block_on(self.send())
     }
 }

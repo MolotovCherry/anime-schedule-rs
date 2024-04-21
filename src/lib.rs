@@ -2,7 +2,6 @@ pub mod api;
 pub mod errors;
 pub mod objects;
 pub mod rate_limit;
-
 mod utils;
 
 use std::{
@@ -12,7 +11,6 @@ use std::{
     time::Duration,
 };
 
-use self::api::account::AccountApi;
 use chrono::Utc;
 use oauth2::{
     basic::BasicClient, reqwest::async_http_client, AccessToken, AuthUrl, AuthorizationCode,
@@ -20,16 +18,25 @@ use oauth2::{
     Scope, TokenResponse as _, TokenUrl,
 };
 use reqwest::ClientBuilder;
+use tokio::runtime::{Builder, Runtime};
 
 use crate::{
     api::{
-        anime::AnimeApi, animelists::AnimeListsApi, category::CategoryApi,
+        account::AccountApi, anime::AnimeApi, animelists::AnimeListsApi, category::CategoryApi,
         timetables::TimetablesApi,
     },
     errors::TokenError,
+    utils::LazyLock,
 };
 
 const API_URL: &str = "https://animeschedule.net/api/v3";
+
+pub static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
+    Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed building the Runtime")
+});
 
 #[derive(Clone)]
 pub struct AnimeScheduleClient {
@@ -223,6 +230,16 @@ impl Auth {
         *lock = Box::new(move |url, state| Box::pin(f(url, state)));
     }
 
+    pub fn set_callback_blocking<
+        F: Fn(reqwest::Url, State) -> Fut + Send + 'static,
+        Fut: Future<Output = Result<(Code, State), Box<dyn std::error::Error>>> + 'static + Send,
+    >(
+        &self,
+        f: F,
+    ) {
+        RUNTIME.block_on(self.set_callback(f))
+    }
+
     /// Is the current state of this token valid?
     ///
     /// This checks that the access token exists and its expiry is still valid,
@@ -243,7 +260,7 @@ impl Auth {
         has_access_token && has_refresh_token && is_active
     }
 
-    pub async fn revoke_token(&mut self) -> Result<(), TokenError> {
+    pub async fn revoke_token(&self) -> Result<(), TokenError> {
         let token = self.access_token.lock().unwrap().clone();
         if let Some(token) = token {
             let req = self
@@ -259,7 +276,11 @@ impl Auth {
         Ok(())
     }
 
-    pub async fn revoke_refresh_token(&mut self) -> Result<(), TokenError> {
+    pub fn revoke_token_blocking(&self) -> Result<(), TokenError> {
+        RUNTIME.block_on(self.revoke_token())
+    }
+
+    pub async fn revoke_refresh_token(&self) -> Result<(), TokenError> {
         let token = self.refresh_token.lock().unwrap().clone();
         if let Some(token) = token {
             let req = self
@@ -273,6 +294,10 @@ impl Auth {
         }
 
         Ok(())
+    }
+
+    pub fn revoke_refresh_token_blocking(&self) -> Result<(), TokenError> {
+        RUNTIME.block_on(self.revoke_refresh_token())
     }
 
     /// Automatically regnerate token if required
@@ -304,6 +329,10 @@ impl Auth {
         }
 
         Ok(())
+    }
+
+    pub fn try_refresh_blocking(&self) -> Result<(), TokenError> {
+        RUNTIME.block_on(self.try_refresh())
     }
 
     /// get access token and expiry time in utc
@@ -347,6 +376,10 @@ impl Auth {
         } else {
             Err(TokenError::Refresh)
         }
+    }
+
+    pub fn refresh_blocking(&self) -> Result<(), TokenError> {
+        RUNTIME.block_on(self.refresh())
     }
 
     /// regenerate fresh access and refresh tokens
@@ -396,5 +429,9 @@ impl Auth {
         *refresh_token = token.refresh_token().cloned();
 
         Ok(())
+    }
+
+    pub fn regenerate_blocking(&self) -> Result<(), TokenError> {
+        RUNTIME.block_on(self.regenerate())
     }
 }

@@ -9,7 +9,7 @@ use crate::{
     },
     rate_limit::RateLimit,
     utils::IsJson as _,
-    AnimeScheduleClient, API_URL,
+    AnimeScheduleClient, API_URL, RUNTIME,
 };
 
 const API_ANIME: &str = formatcp!("{API_URL}/anime");
@@ -339,6 +339,10 @@ impl AnimeGet {
 
         Ok((limit.unwrap(), page))
     }
+
+    pub fn send_blocking(self) -> Result<(RateLimit, AnimePage), ApiError> {
+        RUNTIME.block_on(self.send())
+    }
 }
 
 /// Fetch the data of a specific anime
@@ -371,5 +375,9 @@ impl AnimeSlug {
         let anime: Anime = serde_json::from_str(&text)?;
 
         Ok((limit.unwrap(), anime))
+    }
+
+    pub fn send_blocking(self) -> Result<(RateLimit, Anime), ApiError> {
+        RUNTIME.block_on(self.send())
     }
 }

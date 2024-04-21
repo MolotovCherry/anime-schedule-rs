@@ -3,6 +3,7 @@ use reqwest::Url;
 
 use crate::{
     errors::ApiError, objects::UserStats, rate_limit::RateLimit, AnimeScheduleClient, API_URL,
+    RUNTIME,
 };
 
 const API_ACCOUNT_AVATAR: &str = formatcp!("{API_URL}/users/{{userId}}/avatar");
@@ -96,6 +97,10 @@ impl AccountApiAvatar {
 
         Ok((limit.unwrap(), url))
     }
+
+    pub fn send_blocking(self) -> Result<(RateLimit, Url), ApiError> {
+        RUNTIME.block_on(self.send())
+    }
 }
 
 pub struct AccountApiBanner {
@@ -139,6 +144,10 @@ impl AccountApiBanner {
 
         Ok((limit.unwrap(), url))
     }
+
+    pub fn send_blocking(self) -> Result<(RateLimit, Url), ApiError> {
+        RUNTIME.block_on(self.send())
+    }
 }
 
 pub struct AccountApiStats {
@@ -181,5 +190,9 @@ impl AccountApiStats {
         let stats: UserStats = serde_json::from_str(&text)?;
 
         Ok((limit.unwrap(), stats))
+    }
+
+    pub fn send_blocking(self) -> Result<(RateLimit, UserStats), ApiError> {
+        RUNTIME.block_on(self.send())
     }
 }

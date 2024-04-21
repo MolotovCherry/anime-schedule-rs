@@ -123,9 +123,9 @@ pub enum ClientError {
     Reqwest(#[from] reqwest::Error),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Code(pub String);
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct State(pub String);
 
 pub type Callback = Box<

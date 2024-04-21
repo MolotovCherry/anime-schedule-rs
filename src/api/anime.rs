@@ -9,18 +9,18 @@ use crate::{
     },
     rate_limit::RateLimit,
     utils::IsJson as _,
-    Client, API_URL,
+    AnimeScheduleClient, API_URL,
 };
 
 const API_ANIME: &str = formatcp!("{API_URL}/anime");
 const API_ANIME_SLUG: &str = formatcp!("{API_URL}/anime/{{slug}}");
 
 pub struct AnimeApi {
-    client: Client,
+    client: AnimeScheduleClient,
 }
 
 impl AnimeApi {
-    pub(crate) fn new(client: Client) -> Self {
+    pub(crate) fn new(client: AnimeScheduleClient) -> Self {
         Self { client }
     }
 
@@ -61,7 +61,7 @@ impl AnimeApi {
 #[serde(rename_all = "kebab-case")]
 pub struct AnimeGet {
     #[serde(skip)]
-    client: Client,
+    client: AnimeScheduleClient,
 
     /// The number of the page of the anime array being requested. Defaults to 1.
     page: Option<u64>,
@@ -322,7 +322,7 @@ impl AnimeGet {
             .client
             .http
             .get(url)
-            .bearer_auth(self.client.token.app_token())
+            .bearer_auth(self.client.auth.app_token())
             .send()
             .await?;
 
@@ -343,7 +343,7 @@ impl AnimeGet {
 
 /// Fetch the data of a specific anime
 pub struct AnimeSlug {
-    client: Client,
+    client: AnimeScheduleClient,
     slug: String,
 }
 
@@ -355,7 +355,7 @@ impl AnimeSlug {
             .client
             .http
             .get(url)
-            .bearer_auth(self.client.token.app_token())
+            .bearer_auth(self.client.auth.app_token())
             .send()
             .await?;
 

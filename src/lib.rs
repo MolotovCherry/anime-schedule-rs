@@ -20,12 +20,6 @@ use oauth2::{
     Scope, TokenResponse as _, TokenUrl,
 };
 use reqwest::ClientBuilder;
-#[cfg(feature = "callback_server")]
-use {
-    axum::{extract::Query, response::Html},
-    serde::Deserialize,
-    tokio::{sync::oneshot, task},
-};
 
 use crate::{
     api::{
@@ -38,12 +32,12 @@ use crate::{
 const API_URL: &str = "https://animeschedule.net/api/v3";
 
 #[derive(Clone)]
-pub struct Client {
+pub struct AnimeScheduleClient {
     http: reqwest::Client,
-    token: Arc<Token>,
+    auth: Arc<Auth>,
 }
 
-impl Client {
+impl AnimeScheduleClient {
     /// Create client
     pub fn new(
         client_id: &str,
@@ -51,22 +45,21 @@ impl Client {
         app_token: &str,
         redirect_uri: &str,
     ) -> Result<Self, ClientError> {
-        let http = reqwest::Client::builder()
-            .user_agent(concat!(
-                env!("CARGO_PKG_NAME"),
-                "/",
-                env!("CARGO_PKG_VERSION"),
-            ))
-            .build()
-            .unwrap();
-        let token = Token::new(client_id, client_secret, app_token, redirect_uri)?;
-
-        let slf = Self {
-            http,
-            token: Arc::new(token),
-        };
-
-        Ok(slf)
+        Self::new_with(
+            client_id,
+            client_secret,
+            app_token,
+            redirect_uri,
+            |builder| {
+                builder
+                    .user_agent(concat!(
+                        env!("CARGO_PKG_NAME"),
+                        "/",
+                        env!("CARGO_PKG_VERSION"),
+                    ))
+                    .build()
+            },
+        )
     }
 
     /// Create client with custom reqwest settings (user agent for example)
@@ -75,17 +68,16 @@ impl Client {
         client_secret: &str,
         app_token: &str,
         redirect_uri: &str,
-        builder_cb: impl Fn(&mut ClientBuilder),
+        builder_cb: impl Fn(ClientBuilder) -> Result<reqwest::Client, reqwest::Error>,
     ) -> Result<Self, ClientError> {
-        let mut builder = reqwest::Client::builder();
-        builder_cb(&mut builder);
-        let http = builder.build().unwrap();
+        let builder = reqwest::Client::builder();
+        let http = builder_cb(builder)?;
 
-        let token = Token::new(client_id, client_secret, app_token, redirect_uri)?;
+        let auth = Auth::new(client_id, client_secret, app_token, redirect_uri)?;
 
         let slf = Self {
             http,
-            token: Arc::new(token),
+            auth: Arc::new(auth),
         };
 
         Ok(slf)
@@ -116,8 +108,8 @@ impl Client {
         AccountApi::new(self.clone())
     }
 
-    pub fn token(&self) -> &Token {
-        &self.token
+    pub fn auth(&self) -> &Auth {
+        &self.auth
     }
 }
 
@@ -127,6 +119,8 @@ pub enum ClientError {
     Refresh,
     #[error("{0:?}")]
     Token(#[from] TokenError),
+    #[error("{0}")]
+    Reqwest(#[from] reqwest::Error),
 }
 
 #[derive(Debug)]
@@ -137,6 +131,7 @@ pub struct State(pub String);
 pub type Callback = Box<
     dyn Fn(
             reqwest::Url,
+            State,
         ) -> Pin<
             Box<
                 dyn Future<Output = Result<(Code, State), Box<dyn std::error::Error>>>
@@ -148,7 +143,7 @@ pub type Callback = Box<
 >;
 
 /// Note that both access and refresh tokens are only valid for 3600 after issuance
-pub struct Token {
+pub struct Auth {
     client: BasicClient,
     app_token: String,
     access_token: Mutex<Option<AccessToken>>,
@@ -160,7 +155,7 @@ pub struct Token {
     callback: tokio::sync::Mutex<Callback>,
 }
 
-impl Token {
+impl Auth {
     fn new(
         client_id: &str,
         client_secret: &str,
@@ -184,12 +179,9 @@ impl Token {
             expires_at: Mutex::new(None),
             scopes: Mutex::new(Vec::new()),
 
-            callback: tokio::sync::Mutex::new(
-                #[cfg(feature = "callback_server")]
-                Self::make_callback("127.0.0.1", 8888),
-                #[cfg(not(feature = "callback_server"))]
-                Box::new(|_| unimplemented!("oauth2 callback not implemented")),
-            ),
+            callback: tokio::sync::Mutex::new(Box::new(|_, _| {
+                unimplemented!("oauth2 callback not implemented")
+            })),
         };
 
         Ok(slf)
@@ -220,74 +212,15 @@ impl Token {
         lock.push(Scope::new(scope.to_owned()));
     }
 
-    /// set the uri / port callback server listens on
-    #[cfg(feature = "callback_server")]
-    pub async fn set_callback_server(&self, host: &str, port: u16) {
-        let mut lock = self.callback.lock().await;
-        *lock = Self::make_callback(host, port);
-    }
-
-    /// Open webbrowser with url
-    #[cfg(feature = "callback_server")]
-    fn make_callback(host: &str, port: u16) -> Callback {
-        let host = host.to_owned();
-
-        Box::new(move |url| {
-            let host = host.clone();
-
-            Box::pin(async move {
-                let (tx, mut rx) = tokio::sync::mpsc::channel::<(Code, State)>(1);
-                let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
-
-                task::spawn(async move {
-                    #[derive(Debug, Deserialize)]
-                    struct Params {
-                        code: String,
-                        state: String,
-                    }
-
-                    let app = axum::Router::new().route(
-                        "/",
-                        axum::routing::get(|Query(params): Query<Params>| async move {
-                            _ = tx.send((Code(params.code), State(params.state))).await;
-                            Html("<h1>Token saved</h1>")
-                        }),
-                    );
-
-                    let listener = tokio::net::TcpListener::bind(format!("{host}:{port}"))
-                        .await
-                        .unwrap();
-
-                    axum::serve(listener, app)
-                        .with_graceful_shutdown(async {
-                            shutdown_rx.await.ok();
-                        })
-                        .await
-                        .unwrap();
-                });
-
-                webbrowser::open(url.as_str())?;
-
-                let Some((code, state)) = rx.recv().await else {
-                    return Err("channel unexpectedly closed".into());
-                };
-
-                _ = shutdown_tx.send(());
-
-                Ok((code, state))
-            })
-        })
-    }
-
     pub async fn set_callback<
-        F: Fn(reqwest::Url) -> Fut + Send + 'static,
+        F: Fn(reqwest::Url, State) -> Fut + Send + 'static,
         Fut: Future<Output = Result<(Code, State), Box<dyn std::error::Error>>> + 'static + Send,
     >(
         &mut self,
         f: F,
     ) {
         let mut lock = self.callback.lock().await;
-        *lock = Box::new(move |url| Box::pin(f(url)));
+        *lock = Box::new(move |url, state| Box::pin(f(url, state)));
     }
 
     /// Is the current state of this token valid?
@@ -430,7 +363,7 @@ impl Token {
             .url();
 
         let callback = self.callback.lock().await;
-        let (res_code, res_state) = match callback(auth_url).await {
+        let (res_code, res_state) = match callback(auth_url, State(state.secret().clone())).await {
             Ok(v) => v,
             Err(e) => return Err(TokenError::Callback(e.to_string())),
         };

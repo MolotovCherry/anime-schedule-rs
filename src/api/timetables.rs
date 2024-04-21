@@ -7,18 +7,18 @@ use crate::{
     objects::{AirTypeQuery, Timetables},
     rate_limit::RateLimit,
     utils::IsJson as _,
-    Client, API_URL,
+    AnimeScheduleClient, API_URL,
 };
 
 const API_TIMETABLES: &str = formatcp!("{API_URL}/timetables");
 const API_TIMETABLES_AIR_TYPE: &str = formatcp!("{API_URL}/timetables/{{airType}}");
 
 pub struct TimetablesApi {
-    client: Client,
+    client: AnimeScheduleClient,
 }
 
 impl TimetablesApi {
-    pub(crate) fn new(client: Client) -> Self {
+    pub(crate) fn new(client: AnimeScheduleClient) -> Self {
         Self { client }
     }
 
@@ -39,7 +39,7 @@ impl TimetablesApi {
 #[serde(rename_all = "kebab-case")]
 pub struct TimetablesGet {
     #[serde(skip)]
-    client: Client,
+    client: AnimeScheduleClient,
     #[serde(skip)]
     air_type: Option<AirTypeQuery>,
 
@@ -93,7 +93,7 @@ impl TimetablesGet {
             .client
             .http
             .get(url)
-            .bearer_auth(self.client.token.app_token())
+            .bearer_auth(self.client.auth.app_token())
             .send()
             .await?;
 

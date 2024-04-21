@@ -7,19 +7,19 @@ use crate::{
     objects::{Categories, Category},
     rate_limit::RateLimit,
     utils::IsJson as _,
-    Client, API_URL,
+    AnimeScheduleClient, API_URL,
 };
 
 const API_CATEGORITES_TYPE: &str = formatcp!("{API_URL}/categories/{{categoryType}}");
 const API_CATEGORITES_TYPE_SLUG: &str = formatcp!("{API_URL}/categories/{{categoryType}}/{{slug}}");
 
 pub struct CategoryApi {
-    client: Client,
+    client: AnimeScheduleClient,
     category_type: String,
 }
 
 impl CategoryApi {
-    pub(crate) fn new(client: Client, category: &str) -> Self {
+    pub(crate) fn new(client: AnimeScheduleClient, category: &str) -> Self {
         Self {
             client,
             category_type: category.to_owned(),
@@ -40,7 +40,7 @@ impl CategoryApi {
 #[serde(rename_all = "kebab-case")]
 pub struct CategoryGet {
     #[serde(skip)]
-    client: Client,
+    client: AnimeScheduleClient,
     #[serde(skip)]
     category_type: String,
 
@@ -79,7 +79,7 @@ impl CategoryGet {
             .client
             .http
             .get(url)
-            .bearer_auth(self.client.token.app_token())
+            .bearer_auth(self.client.auth.app_token())
             .send()
             .await?;
 
@@ -100,7 +100,7 @@ impl CategoryGet {
 
 /// Fetch the data of a specific category
 pub struct CategorySlug {
-    client: Client,
+    client: AnimeScheduleClient,
     slug: String,
     category_type: String,
 }
@@ -116,7 +116,7 @@ impl CategorySlug {
             .client
             .http
             .get(url)
-            .bearer_auth(self.client.token.app_token())
+            .bearer_auth(self.client.auth.app_token())
             .send()
             .await?;
 

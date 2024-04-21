@@ -1,18 +1,20 @@
 use const_format::formatcp;
 use reqwest::Url;
 
-use crate::{errors::ApiError, objects::UserStats, rate_limit::RateLimit, Client, API_URL};
+use crate::{
+    errors::ApiError, objects::UserStats, rate_limit::RateLimit, AnimeScheduleClient, API_URL,
+};
 
 const API_ACCOUNT_AVATAR: &str = formatcp!("{API_URL}/users/{{userId}}/avatar");
 const API_ACCOUNT_BANNER: &str = formatcp!("{API_URL}/users/{{userId}}/banner");
 const API_ACCOUNT_STATS: &str = formatcp!("{API_URL}/users/{{userId}}/stats");
 
 pub struct AccountApi {
-    client: Client,
+    client: AnimeScheduleClient,
 }
 
 impl AccountApi {
-    pub(crate) fn new(client: Client) -> Self {
+    pub(crate) fn new(client: AnimeScheduleClient) -> Self {
         Self { client }
     }
 
@@ -24,7 +26,7 @@ impl AccountApi {
 }
 
 pub struct AccountApiGet {
-    client: Client,
+    client: AnimeScheduleClient,
 }
 
 impl AccountApiGet {
@@ -54,7 +56,7 @@ impl AccountApiGet {
 }
 
 pub struct AccountApiAvatar {
-    client: Client,
+    client: AnimeScheduleClient,
     user_id: Option<String>,
 }
 
@@ -75,7 +77,7 @@ impl AccountApiAvatar {
             .client
             .http
             .get(url)
-            .bearer_auth(self.client.token.app_token())
+            .bearer_auth(self.client.auth.app_token())
             .send()
             .await?;
 
@@ -97,7 +99,7 @@ impl AccountApiAvatar {
 }
 
 pub struct AccountApiBanner {
-    client: Client,
+    client: AnimeScheduleClient,
     user_id: Option<String>,
 }
 
@@ -118,7 +120,7 @@ impl AccountApiBanner {
             .client
             .http
             .get(url)
-            .bearer_auth(self.client.token.app_token())
+            .bearer_auth(self.client.auth.app_token())
             .send()
             .await?;
 
@@ -140,7 +142,7 @@ impl AccountApiBanner {
 }
 
 pub struct AccountApiStats {
-    client: Client,
+    client: AnimeScheduleClient,
     user_id: Option<String>,
 }
 
@@ -161,7 +163,7 @@ impl AccountApiStats {
             .client
             .http
             .get(url)
-            .bearer_auth(self.client.token.app_token())
+            .bearer_auth(self.client.auth.app_token())
             .send()
             .await?;
 

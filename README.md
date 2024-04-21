@@ -11,16 +11,17 @@ For an in depth review of their api and which endpoints require oauth2, see http
 When using an oauth2 endpoint, you must have created an oauth2 token for the user. You can do so using the included token api
 ```rust
 // if you want to create your token with the full scope, add scope before generating a token
-client.token.add_scope("animelist");
+client.auth.add_scope("animelist");
 
 // this requires a webserver to receive the oauth code+state for regenerate
-// this crate comes with a built in localhost webserver you can use with feature `callback_server`
-// by default this listens on localhost:8888, but you can change it
-//
-// but if you are using this in production, you will need to use your own server
-client.token.set_callback_server("127.0.0.1", 1234);
 // set your own custom callback for production usage
-client.token.set_callback(|url| async {
+client.auth.set_callback(|url, state| async {
+    // the url passed in is the one the client needs to navigate to
+
+    // receive the state on your webserver, compare it to the received state above
+    // to ensure it's valid and the right client. if you return wrong state, the
+    // regenerate api will fail due to security check
+
     // get the code / state and return it
     (Code("".to_owned()), State("".to_owned()))
 });
@@ -30,20 +31,20 @@ client.token.set_callback(|url| async {
 // if you pass this threashold, you are required to regenerate the tokens
 
 // regenerate tokens from scratch
-client.token.regenerate().await;
+client.auth.regenerate().await;
 
 // if you have a refresh key, you can exchange it for an access token
-client.token.refresh_token().await;
+client.auth.refresh_token().await;
 
 // you can automatically try to refresh it if access token expired
 // if no refresh token exists, it will regenerate the whole thing
-client.token.try_refresh().await;
+client.auth.try_refresh().await;
 
 // you can also set the access/refresh token manually if you need to
-client.token.set_refresh_token(Some("token"));
-client.token.set_access_token(Some("token"));
+client.auth.set_refresh_token(Some("token"));
+client.auth.set_access_token(Some("token"));
 // set the time from Instant::now() after which access token expires
-client.token.set_expires_in(Some(Duration::from_secs(3600)));
+client.auth.set_expires_in(Some(Duration::from_secs(3600)));
 
 // use the api
 client.anime().get().q("query").genres(&["action"]).send().await;

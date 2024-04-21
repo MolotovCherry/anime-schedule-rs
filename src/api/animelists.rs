@@ -9,7 +9,7 @@ use crate::{
     objects::{Action, AutoScores, ListAnime, ListAnimePut, ListStatus, UserListAnime},
     rate_limit::RateLimit,
     utils::IsJson as _,
-    Client, API_URL,
+    AnimeScheduleClient, API_URL,
 };
 
 const API_ANIMELISTS_USERID_ROUTE: &str = formatcp!("{API_URL}/animelists/{{userId}}/{{route}}");
@@ -18,11 +18,11 @@ const API_ANIMELISTS_USERID: &str = formatcp!("{API_URL}/animelists/{{userId}}")
 const API_ANIMELISTS: &str = formatcp!("{API_URL}/animelists/oauth");
 
 pub struct AnimeListsApi {
-    client: Client,
+    client: AnimeScheduleClient,
 }
 
 impl AnimeListsApi {
-    pub(crate) fn new(client: Client) -> Self {
+    pub(crate) fn new(client: AnimeScheduleClient) -> Self {
         Self { client }
     }
 
@@ -56,7 +56,7 @@ impl AnimeListsApi {
 
 /// Returns a specific List Anime object and an Etag in the response headers. Route is the anime's URL slug.
 pub struct AnimeListsGet {
-    client: Client,
+    client: AnimeScheduleClient,
 
     /// user id to fetch from
     user_id: Option<String>,
@@ -93,11 +93,11 @@ impl AnimeListsGet {
             .get(url)
             .bearer_auth(if is_user_id {
                 // access to another's list
-                self.client.token.app_token().to_owned()
+                self.client.auth.app_token().to_owned()
             } else {
                 // access to self list
                 self.client
-                    .token
+                    .auth
                     .access_token()
                     .ok_or(ApiError::AccessToken)?
                     .secret()
@@ -133,7 +133,7 @@ impl Deref for ETag {
 
 /// Returns a specific List Anime object and an Etag in the response headers. Route is the anime's URL slug.
 pub struct AnimeListsGetRoute {
-    client: Client,
+    client: AnimeScheduleClient,
 
     /// user id to fetch from
     user_id: Option<String>,
@@ -165,11 +165,11 @@ impl AnimeListsGetRoute {
             .get(url)
             .bearer_auth(if is_user_id {
                 // access to another's list
-                self.client.token.app_token().to_owned()
+                self.client.auth.app_token().to_owned()
             } else {
                 // access to self list
                 self.client
-                    .token
+                    .auth
                     .access_token()
                     .ok_or(ApiError::AccessToken)?
                     .secret()
@@ -202,7 +202,7 @@ impl AnimeListsGetRoute {
 
 /// Import an anime list from MyAnimeList via .xml file
 pub struct AnimeListsPut {
-    client: Client,
+    client: AnimeScheduleClient,
 
     /// user id to put to
     user_id: Option<String>,
@@ -278,7 +278,7 @@ impl AnimeListsPut {
             .put(url)
             .bearer_auth(
                 self.client
-                    .token
+                    .auth
                     .access_token()
                     .ok_or(ApiError::AccessToken)?
                     .secret()
@@ -305,7 +305,7 @@ impl AnimeListsPut {
 
 /// Add/Update a specific List Anime for a user
 pub struct AnimeListsPutRoute {
-    client: Client,
+    client: AnimeScheduleClient,
 
     /// user id to put to
     user_id: Option<String>,
@@ -411,7 +411,7 @@ impl AnimeListsPutRoute {
             .header("ETag", self.etag.unwrap())
             .bearer_auth(
                 self.client
-                    .token
+                    .auth
                     .access_token()
                     .ok_or(ApiError::AccessToken)?
                     .secret()
@@ -438,7 +438,7 @@ impl AnimeListsPutRoute {
 
 /// Deletes a specific List Anime object from the user's anime list. Route is the anime's URL slug.
 pub struct AnimeListsDelete {
-    client: Client,
+    client: AnimeScheduleClient,
 
     /// anime url slug route to delete
     route: Option<String>,
@@ -478,7 +478,7 @@ impl AnimeListsDelete {
             .delete(url)
             .bearer_auth(
                 self.client
-                    .token
+                    .auth
                     .access_token()
                     .ok_or(ApiError::AccessToken)?
                     .secret()

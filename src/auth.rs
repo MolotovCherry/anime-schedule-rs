@@ -129,24 +129,42 @@ impl Auth {
         RUNTIME.block_on(self.set_callback(f))
     }
 
-    /// Is the current state of this token valid?
+    /// Is the access token valid?
     ///
-    /// This checks that the access token exists and its expiry is still valid,
-    /// that a refresh token also exists.
+    /// This checks that the access token exists and its expiry is still valid.
     ///
     /// Unless you're doing manual setup, this will correctly represent whether it's valid or not
     ///
-    /// (Manual setup is, for example, manually setting the refresh token and running refresh on it)
+    /// (Manual setup is, for example, manually setting the access token)
     pub fn is_valid(&self) -> bool {
         let has_access_token = self.access_token.lock().unwrap().is_some();
-        let has_refresh_token = self.refresh_token.lock().unwrap().is_some();
+
         let is_active = self
             .expires_at
             .lock()
             .unwrap()
             .is_some_and(|t| (Utc::now().timestamp() as u64) < t);
 
-        has_access_token && has_refresh_token && is_active
+        has_access_token && is_active
+    }
+
+    /// Is the refresh token valid?
+    ///
+    /// This checks that the refresh token exists and its expiry is still valid.
+    ///
+    /// Unless you're doing manual setup, this will correctly represent whether it's valid or not
+    ///
+    /// (Manual setup is, for example, manually setting the refresh token)
+    pub fn is_refresh_valid(&self) -> bool {
+        let has_refresh_token = self.refresh_token.lock().unwrap().is_some();
+
+        let is_refresh_active = self
+            .expires_at
+            .lock()
+            .unwrap()
+            .is_some_and(|t| (Utc::now().timestamp() as u64) < t);
+
+        has_refresh_token && is_refresh_active
     }
 
     pub async fn revoke_token(&self) -> Result<(), TokenError> {
@@ -189,32 +207,16 @@ impl Auth {
         RUNTIME.block_on(self.revoke_refresh_token())
     }
 
-    /// Automatically regnerate token if required
-    /// Does nothing if there's no need to regenerate
+    /// Automatically regnerate token
+    /// Does nothing if refresh token is not valid
     ///
     /// Note that both access and refresh tokens are only valid for 3600
     pub async fn try_refresh(&self) -> Result<(), TokenError> {
         // current access and refresh token expiry are the same: 3600
 
-        let expires_at = *self.expires_at.lock().unwrap();
-        if let Some(expires_at) = expires_at {
-            let now = Utc::now().timestamp() as u64;
-
-            // access token is expired, and refresh token exists, exchange refresh token
-            if now >= expires_at
-                || self.access_token.lock().unwrap().is_none()
-                || self.refresh_token.lock().unwrap().is_none()
-            {
-                self.regenerate().await?;
-            }
-        } else if self.refresh_token().is_some() && self.access_token().is_none() {
+        if self.is_refresh_valid() {
             // try refresh token, if that fails we need to re-do it all
-            if self.refresh().await.is_err() {
-                self.regenerate().await?;
-            }
-        } else {
-            // refresh token is None, no expire at time
-            self.regenerate().await?;
+            self.refresh().await?;
         }
 
         Ok(())

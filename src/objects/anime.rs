@@ -391,19 +391,7 @@ fn jpn_datetime_opt<'de, D>(deserializer: D) -> Result<Option<DateTime<FixedOffs
 where
     D: Deserializer<'de>,
 {
-    let Ok(s): Result<&str, _> = Deserialize::deserialize(deserializer) else {
-        return Ok(None);
-    };
-
-    let japan_tz = FixedOffset::east_opt(9 * 3600).unwrap();
-
-    let datetime = s
-        .parse::<DateTime<Utc>>()
-        .map_err(|e| Error::custom(e.to_string()))?;
-
-    let datetime = datetime.with_timezone(&japan_tz);
-
-    Ok(Some(datetime))
+    Ok(Some(jpn_datetime(deserializer)?))
 }
 
 /// returns a datetime parsed into japan's fixedoffset

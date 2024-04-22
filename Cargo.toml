@@ -1,7 +1,13 @@
 [package]
-name = "anime-schedule"
+name = "animeschedule"
 version = "0.1.0"
 edition = "2021"
+authors = ["Cherry"]
+license = "MIT"
+description = "A complete async/sync typed AnimeSchedule api"
+repository = "https://github.com/MolotovCherry/anime-schedule-rs"
+categories = ["api-bindings"]
+keywords = ["animeschedule", "schedule", "api", "anime"]
 
 [dependencies]
 serde = { version = "1.0.198", features = ["derive"] }
@@ -14,7 +20,7 @@ reqwest = { version = "0.12.3", features = ["json", "multipart"] }
 oauth2 = { version = "4.4.2", features = ["reqwest"] }
 tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros"] }
 const_format = "0.2.32"
-# serde_qs official doesn't support repeat arras right now
+# serde_qs official doesn't support repeat arrays right now
 serde_qs = { git = "https://github.com/MolotovCherry/serde_qs" }
 serde_with = "3.7.0"
 http = "1.1.0"

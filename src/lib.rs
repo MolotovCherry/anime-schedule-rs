@@ -21,7 +21,7 @@ use crate::{
 
 const API_URL: &str = "https://animeschedule.net/api/v3";
 
-pub static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
+static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
     Builder::new_multi_thread()
         .enable_all()
         .build()

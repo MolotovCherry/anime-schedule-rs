@@ -55,7 +55,7 @@ pub struct ListAnime {
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct ListAnimePut {
+pub(crate) struct ListAnimePut {
     /// The list the anime belongs to.
     pub list_status: Option<ListStatus>,
     /// The amount of episodes seen from the anime.

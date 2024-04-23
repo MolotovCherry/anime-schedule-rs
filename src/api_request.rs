@@ -41,8 +41,8 @@ impl Clone for ApiRequest {
         ApiRequest {
             auth: auth.clone(),
             http: http.clone(),
-            response_cb: response_cb.as_ref().map(|cb| dyn_clone::clone_box(&**cb)),
-            request_cb: request_cb.as_ref().map(|cb| dyn_clone::clone_box(&**cb)),
+            response_cb: response_cb.as_ref().map(|_| unimplemented!()),
+            request_cb: request_cb.as_ref().map(|_| unimplemented!()),
         }
     }
 }

@@ -376,14 +376,14 @@ impl AnimeListsPutRoute {
 
     /// The date the anime was started watching.
     pub fn start_date<Tz: TimeZone>(mut self, datetime: DateTime<Tz>) -> Self {
-        let datetime = datetime.with_timezone(&Utc);
+        let datetime = datetime.with_timezone(&datetime.offset().fix());
         self.list.start_date = Some(datetime);
         self
     }
 
     /// The date the anime was finished watching.
     pub fn end_date<Tz: TimeZone>(mut self, datetime: DateTime<Tz>) -> Self {
-        let datetime = datetime.with_timezone(&Utc);
+        let datetime = datetime.with_timezone(&datetime.offset().fix());
         self.list.end_date = Some(datetime);
         self
     }

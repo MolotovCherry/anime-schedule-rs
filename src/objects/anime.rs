@@ -1,10 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
 use chrono::prelude::*;
-use serde::{de::Error, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use strum::IntoStaticStr;
 
-use super::Html;
+use super::{datetime_opt, Html};
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -32,9 +32,11 @@ pub struct Anime {
     #[serde(default, deserialize_with = "jpn_datetime_opt")]
     pub premier: Option<DateTime<FixedOffset>>,
     /// The English Sub release date of the first episode.
-    pub sub_premier: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub sub_premier: Option<DateTime<FixedOffset>>,
     /// The English Dub release date of the first episode.
-    pub dub_premier: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub dub_premier: Option<DateTime<FixedOffset>>,
     /// The earliest month of an anime's release date.
     pub month: Option<Month>,
     /// The earliest year of an anime's release date.
@@ -43,30 +45,37 @@ pub struct Anime {
     /// The delayed text on the timetable.
     pub delayed_timetable: Option<DelayedTimetable>,
     /// The date from which it has been delayed.
-    pub delayed_from: DateTime<Utc>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub delayed_from: Option<DateTime<FixedOffset>>,
     /// The date until it has been delayed to.
-    pub delayed_until: DateTime<Utc>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub delayed_until: Option<DateTime<FixedOffset>>,
     /// The sub delayed text on the timetable. Used only if SubPremier is not null.
-    pub sub_delayed_timetable: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub sub_delayed_timetable: Option<DateTime<FixedOffset>>,
     /// The date from which the sub has been delayed. Used only if SubPremier is not null.
-    pub sub_delayed_from: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub sub_delayed_from: Option<DateTime<FixedOffset>>,
     /// The date until it the sub has been delayed to. Used only if SubPremier is not null.
-    pub sub_delayed_until: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub sub_delayed_until: Option<DateTime<FixedOffset>>,
     /// The dub delayed text on the timetable. Used only if DubPremier is not null.
     pub dub_delayed_timetable: Option<DelayedTimetable>,
     /// The date from which the dub has been delayed from. Used only if DubPremier is not null.
-    pub dub_delayed_from: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub dub_delayed_from: Option<DateTime<FixedOffset>>,
     /// The date until it the dub has been delayed to. Used only if DubPremier is not null.
-    pub dub_delayed_until: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub dub_delayed_until: Option<DateTime<FixedOffset>>,
     /// The delayed description text on the anime's page.
     pub delayed_desc: Option<String>,
     /// The Japanese release time. Only the hour and minute are relevant.
-    #[serde(deserialize_with = "jpn_datetime")]
-    pub jpn_time: DateTime<FixedOffset>,
+    #[serde(deserialize_with = "jpn_datetime_opt")]
+    pub jpn_time: Option<DateTime<FixedOffset>>,
     /// The English Sub release time. Only the hour and minute are relevant.
-    pub sub_time: DateTime<Utc>,
+    pub sub_time: DateTime<FixedOffset>,
     /// The English Dub release time. Only the hour and minute are relevant.
-    pub dub_time: DateTime<Utc>,
+    pub dub_time: DateTime<FixedOffset>,
     /// The description.
     pub description: Html,
     /// The anime's genres in an array of the category object.
@@ -298,13 +307,15 @@ pub struct TimetableAnime {
     /// The timetable delayed display text.
     pub delayed_text: Option<String>,
     /// The date from which it has been delayed.
-    pub delayed_from: Option<String>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub delayed_from: Option<DateTime<FixedOffset>>,
     /// The date until it has been delayed to.
-    pub delayed_until: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub delayed_until: Option<DateTime<FixedOffset>>,
     /// The airing status.
     pub status: AirStatus,
     /// The episode's date and time.
-    pub episode_date: DateTime<Utc>,
+    pub episode_date: DateTime<FixedOffset>,
     /// The episode's number.
     pub episode_number: u64,
     /// The lowest episode number. Used only if multiple episodes air. The full format is SubtractedEpisodeNumber - EpisodeNumber.
@@ -312,7 +323,7 @@ pub struct TimetableAnime {
     /// The total episodes of an anime. 0 indicates unknown.
     pub episodes: Option<u64>,
     /// The length of an episode in minutes.
-    pub length_min: u64,
+    pub length_min: Option<u64>,
     /// Whether a timetable anime is a donghua/chinese.
     pub donghua: bool,
     /// The air type. Raw and Dub will only display timetable anime that match it. Sub will use Raw if Sub is not available.
@@ -391,23 +402,16 @@ fn jpn_datetime_opt<'de, D>(deserializer: D) -> Result<Option<DateTime<FixedOffs
 where
     D: Deserializer<'de>,
 {
-    Ok(Some(jpn_datetime(deserializer)?))
-}
-
-/// returns a datetime parsed into japan's fixedoffset
-fn jpn_datetime<'de, D>(deserializer: D) -> Result<DateTime<FixedOffset>, D::Error>
-where
-    D: Deserializer<'de>,
-{
     let s: &str = Deserialize::deserialize(deserializer)?;
+
+    if s == "0001-01-01T00:00:00Z" {
+        return Ok(None);
+    }
 
     let japan_tz = FixedOffset::east_opt(9 * 3600).unwrap();
 
-    let datetime = s
-        .parse::<DateTime<Utc>>()
-        .map_err(|e| Error::custom(e.to_string()))?;
-
+    let datetime = DateTime::parse_from_rfc3339(s).map_err(serde::de::Error::custom)?;
     let datetime = datetime.with_timezone(&japan_tz);
 
-    Ok(datetime)
+    Ok(Some(datetime))
 }

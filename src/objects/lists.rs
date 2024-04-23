@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::IntoStaticStr;
 
+use super::datetime_opt;
+
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(transparent)]
 pub struct Route(pub String);
@@ -42,9 +44,11 @@ pub struct ListAnime {
     pub use_auto_scores: bool,
     pub auto_scores: AutoScores,
     /// The date the anime was started watching.
-    pub start_date: DateTime<Utc>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub start_date: Option<DateTime<FixedOffset>>,
     /// The date the anime was finished watching.
-    pub end_date: DateTime<Utc>,
+    #[serde(default, deserialize_with = "datetime_opt")]
+    pub end_date: Option<DateTime<FixedOffset>>,
     /// User note. Max length is 1000.
     pub note: Option<String>,
 }
@@ -63,9 +67,9 @@ pub struct ListAnimePut {
     pub use_auto_scores: Option<bool>,
     pub auto_scores: Option<AutoScores>,
     /// The date the anime was started watching.
-    pub start_date: Option<DateTime<Utc>>,
+    pub start_date: Option<DateTime<FixedOffset>>,
     /// The date the anime was finished watching.
-    pub end_date: Option<DateTime<Utc>>,
+    pub end_date: Option<DateTime<FixedOffset>>,
     /// User note. Max length is 1000.
     pub note: Option<String>,
     /// Indicates a non-standard operation. Used only in PUT requests. Valid values are deleteNote.

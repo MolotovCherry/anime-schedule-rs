@@ -4,11 +4,12 @@ mod lists;
 
 use std::ops::{Deref, DerefMut};
 
+use chrono::{DateTime, FixedOffset};
+use serde::{Deserialize, Deserializer};
+
 pub use account::*;
 pub use anime::*;
-use chrono::{DateTime, FixedOffset};
 pub use lists::*;
-use serde::{Deserialize, Deserializer};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]

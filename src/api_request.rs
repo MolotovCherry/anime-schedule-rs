@@ -5,12 +5,7 @@ use reqwest::{Client, IntoUrl, RequestBuilder};
 use serde::de::DeserializeOwned;
 use tracing::debug;
 
-use crate::{
-    errors::ApiError,
-    rate_limit::RateLimit,
-    utils::{IsJson, RequestCb, ResponseCb},
-    Auth,
-};
+use crate::{errors::ApiError, rate_limit::RateLimit, utils::IsJson, Auth};
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum RequestMethod {
@@ -25,24 +20,20 @@ pub(crate) struct ApiRequest {
     http: reqwest::Client,
     // these are not
     #[allow(clippy::complexity)]
-    response_cb: Option<Box<dyn ResponseCb>>,
-    request_cb: Option<Box<dyn RequestCb>>,
+    response_cb: Option<Box<dyn FnOnce(&HeaderMap) + 'static>>,
+    request_cb: Option<Box<dyn FnOnce(RequestBuilder) -> RequestBuilder + 'static>>,
 }
 
 impl Clone for ApiRequest {
     fn clone(&self) -> Self {
-        let ApiRequest {
-            auth,
-            http,
-            response_cb,
-            request_cb,
-        } = self;
+        let ApiRequest { auth, http, .. } = self;
 
         ApiRequest {
             auth: auth.clone(),
             http: http.clone(),
-            response_cb: response_cb.as_ref().map(|_| unimplemented!()),
-            request_cb: request_cb.as_ref().map(|_| unimplemented!()),
+            // we don't need to clone this. it's set individually per call, and runs only once
+            response_cb: None,
+            request_cb: None,
         }
     }
 }
@@ -57,13 +48,13 @@ impl ApiRequest {
         }
     }
 
-    pub fn response_cb(&mut self, response_cb: impl FnOnce(&HeaderMap) + Clone + 'static) {
+    pub fn response_cb(&mut self, response_cb: impl FnOnce(&HeaderMap) + 'static) {
         self.response_cb = Some(Box::new(response_cb));
     }
 
     pub fn request_cb(
         &mut self,
-        request_cb: impl FnOnce(RequestBuilder) -> RequestBuilder + Clone + 'static,
+        request_cb: impl FnOnce(RequestBuilder) -> RequestBuilder + 'static,
     ) {
         self.request_cb = Some(Box::new(request_cb));
     }
@@ -133,7 +124,7 @@ impl ApiRequest {
         };
 
         let request = if let Some(cb) = self.request_cb.take() {
-            cb.call(request)
+            cb(request)
         } else {
             request
         };
@@ -144,7 +135,7 @@ impl ApiRequest {
         let limit = RateLimit::new(headers);
 
         if let Some(cb) = self.response_cb.take() {
-            cb.call(headers);
+            cb(headers);
         }
 
         let status = response.status();

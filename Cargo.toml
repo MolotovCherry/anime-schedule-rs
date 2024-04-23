@@ -25,4 +25,3 @@ serde_qs = { version = "0.13.0", git = "https://github.com/MolotovCherry/serde_q
 serde_with = "3.7.0"
 http = "1.1.0"
 tracing = "0.1.40"
-dyn-clone = "1.0.17"

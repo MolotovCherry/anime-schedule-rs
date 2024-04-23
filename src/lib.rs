@@ -31,7 +31,7 @@ static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
 #[derive(Clone)]
 pub struct AnimeScheduleClient {
     http: reqwest::Client,
-    auth: Arc<Auth>,
+    pub auth: Arc<Auth>,
 }
 
 impl AnimeScheduleClient {

@@ -1,4 +1,5 @@
 pub mod api;
+mod api_request;
 pub mod auth;
 pub mod errors;
 pub mod objects;
@@ -19,6 +20,8 @@ use crate::{
     utils::LazyLock,
 };
 
+use self::api_request::ApiRequest;
+
 const API_URL: &str = "https://animeschedule.net/api/v3";
 
 static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
@@ -30,7 +33,7 @@ static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
 
 #[derive(Clone)]
 pub struct AnimeScheduleClient {
-    http: reqwest::Client,
+    http: ApiRequest,
     pub auth: Arc<Auth>,
 }
 
@@ -70,12 +73,16 @@ impl AnimeScheduleClient {
         let builder = reqwest::Client::builder();
         let http = builder_cb(builder)?;
 
-        let auth = Auth::new(client_id, client_secret, app_token, redirect_uri)?;
+        let auth = Arc::new(Auth::new(
+            client_id,
+            client_secret,
+            app_token,
+            redirect_uri,
+        )?);
 
-        let slf = Self {
-            http,
-            auth: Arc::new(auth),
-        };
+        let http = ApiRequest::new(auth.clone(), http);
+
+        let slf = Self { http, auth };
 
         Ok(slf)
     }
@@ -103,9 +110,5 @@ impl AnimeScheduleClient {
     /// Fetch account details
     pub fn account(&self) -> AccountApi {
         AccountApi::new(self.clone())
-    }
-
-    pub fn auth(&self) -> &Auth {
-        &self.auth
     }
 }

@@ -6,7 +6,6 @@ use crate::{
     errors::ApiError,
     objects::{AirTypeQuery, Timetables},
     rate_limit::RateLimit,
-    utils::IsJson as _,
     AnimeScheduleClient, API_URL, RUNTIME,
 };
 
@@ -78,7 +77,7 @@ impl TimetablesGet {
     }
 
     /// Fetch the data of multiple categories by query
-    pub async fn send(self) -> Result<(RateLimit, Timetables), ApiError> {
+    pub async fn send(mut self) -> Result<(RateLimit, Timetables), ApiError> {
         let url = if let Some(air_type) = self.air_type {
             API_TIMETABLES_AIR_TYPE.replace("{airType}", air_type.into())
         } else {
@@ -89,26 +88,7 @@ impl TimetablesGet {
 
         let url = format!("{url}?{query}");
 
-        let response = self
-            .client
-            .http
-            .get(url)
-            .bearer_auth(self.client.auth.app_token())
-            .send()
-            .await?;
-
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
-
-        let text = response.text().await?;
-
-        if !text.is_json() {
-            return Err(ApiError::Api(text));
-        }
-
-        let timetable: Timetables = serde_json::from_str(&text)?;
-
-        Ok((limit.unwrap(), timetable))
+        self.client.http.get(url, false).await
     }
 
     pub fn send_blocking(self) -> Result<(RateLimit, Timetables), ApiError> {

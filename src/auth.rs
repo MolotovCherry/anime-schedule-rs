@@ -1,4 +1,4 @@
-use std::{future::Future, pin::Pin, sync::Mutex, time::Duration};
+use std::{fmt, future::Future, pin::Pin, sync::Mutex, time::Duration};
 
 use chrono::Utc;
 use oauth2::{
@@ -49,6 +49,22 @@ pub struct Auth {
     expires_at: Mutex<Option<u64>>,
     scopes: Mutex<Vec<Scope>>,
     callback: tokio::sync::Mutex<Callback>,
+}
+
+impl fmt::Debug for Auth {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Auth { client, .. } = self;
+
+        f.debug_struct("Auth")
+            .field("client", &client)
+            .field("app_token", &"[redacted]")
+            .field("access_token", &"[redacted]")
+            .field("refresh_token", &"[redacted]")
+            .field("expires_at", &"[redacted]")
+            .field("scopes", &"[redacted]")
+            .field("callback", &"<ptr>")
+            .finish()
+    }
 }
 
 impl Auth {

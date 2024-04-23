@@ -1,3 +1,5 @@
+use http::StatusCode;
+
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum TokenError {
@@ -20,16 +22,16 @@ pub enum TokenError {
 }
 
 #[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
+#[derive(thiserror::Error, Debug)]
 pub enum ApiError {
     #[error("{0}")]
-    Request(#[from] reqwest::Error),
-    #[error("api returned: \"{0}\"")]
-    Api(String),
+    ParseError(#[from] serde_json::Error),
+    #[error("access token missing")]
+    AccessTokenError,
+    #[error("{status}: {error}")]
+    ApiError { status: StatusCode, error: String },
     #[error("{0}")]
-    Json(#[from] serde_json::Error),
-    #[error("access token is missing")]
-    AccessToken,
+    Reqwest(#[from] reqwest::Error),
     #[error("api route requires etag")]
     Etag,
     #[error("api requires xml to be set")]

@@ -67,35 +67,14 @@ impl AccountApiAvatar {
         self
     }
 
-    pub async fn send(self) -> Result<(RateLimit, Url), ApiError> {
+    pub async fn send(mut self) -> Result<(RateLimit, Url), ApiError> {
         let Some(user_id) = self.user_id else {
             return Err(ApiError::UserId);
         };
 
         let url = API_ACCOUNT_AVATAR.replace("{userId}", &user_id);
 
-        let response = self
-            .client
-            .http
-            .get(url)
-            .bearer_auth(self.client.auth.app_token())
-            .send()
-            .await?;
-
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
-
-        let is_err = response.status().is_server_error() || response.status().is_client_error();
-
-        let text = response.text().await?;
-
-        if is_err {
-            return Err(ApiError::Api(text));
-        }
-
-        let url: Url = serde_json::from_str(&text)?;
-
-        Ok((limit.unwrap(), url))
+        self.client.http.get(url, false).await
     }
 
     pub fn send_blocking(self) -> Result<(RateLimit, Url), ApiError> {
@@ -114,35 +93,14 @@ impl AccountApiBanner {
         self
     }
 
-    pub async fn send(self) -> Result<(RateLimit, Url), ApiError> {
+    pub async fn send(mut self) -> Result<(RateLimit, Url), ApiError> {
         let Some(user_id) = self.user_id else {
             return Err(ApiError::UserId);
         };
 
         let url = API_ACCOUNT_BANNER.replace("{userId}", &user_id);
 
-        let response = self
-            .client
-            .http
-            .get(url)
-            .bearer_auth(self.client.auth.app_token())
-            .send()
-            .await?;
-
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
-
-        let is_err = response.status().is_server_error() || response.status().is_client_error();
-
-        let text = response.text().await?;
-
-        if is_err {
-            return Err(ApiError::Api(text));
-        }
-
-        let url: Url = serde_json::from_str(&text)?;
-
-        Ok((limit.unwrap(), url))
+        self.client.http.get(url, false).await
     }
 
     pub fn send_blocking(self) -> Result<(RateLimit, Url), ApiError> {
@@ -161,35 +119,14 @@ impl AccountApiStats {
         self
     }
 
-    pub async fn send(self) -> Result<(RateLimit, UserStats), ApiError> {
+    pub async fn send(mut self) -> Result<(RateLimit, UserStats), ApiError> {
         let Some(user_id) = self.user_id else {
             return Err(ApiError::UserId);
         };
 
         let url = API_ACCOUNT_STATS.replace("{userId}", &user_id);
 
-        let response = self
-            .client
-            .http
-            .get(url)
-            .bearer_auth(self.client.auth.app_token())
-            .send()
-            .await?;
-
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
-
-        let is_err = response.status().is_server_error() || response.status().is_client_error();
-
-        let text = response.text().await?;
-
-        if is_err {
-            return Err(ApiError::Api(text));
-        }
-
-        let stats: UserStats = serde_json::from_str(&text)?;
-
-        Ok((limit.unwrap(), stats))
+        self.client.http.get(url, false).await
     }
 
     pub fn send_blocking(self) -> Result<(RateLimit, UserStats), ApiError> {

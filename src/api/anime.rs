@@ -8,7 +8,6 @@ use crate::{
         AirStatusQuery, Anime, AnimePage, MatchType, SeasonQuery, SortingType, StreamsQuery,
     },
     rate_limit::RateLimit,
-    utils::IsJson as _,
     AnimeScheduleClient, API_URL, RUNTIME,
 };
 
@@ -313,31 +312,12 @@ impl AnimeGet {
         self
     }
 
-    pub async fn send(self) -> Result<(RateLimit, AnimePage), ApiError> {
+    pub async fn send(mut self) -> Result<(RateLimit, AnimePage), ApiError> {
         let query = serde_qs::to_string(&self).unwrap();
 
         let url = format!("{API_ANIME}?{query}");
 
-        let response = self
-            .client
-            .http
-            .get(url)
-            .bearer_auth(self.client.auth.app_token())
-            .send()
-            .await?;
-
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
-
-        let text = response.text().await?;
-
-        if !text.is_json() {
-            return Err(ApiError::Api(text));
-        }
-
-        let page: AnimePage = serde_json::from_str(&text)?;
-
-        Ok((limit.unwrap(), page))
+        self.client.http.get(url, false).await
     }
 
     pub fn send_blocking(self) -> Result<(RateLimit, AnimePage), ApiError> {
@@ -352,29 +332,10 @@ pub struct AnimeSlug {
 }
 
 impl AnimeSlug {
-    pub async fn send(self) -> Result<(RateLimit, Anime), ApiError> {
+    pub async fn send(mut self) -> Result<(RateLimit, Anime), ApiError> {
         let url = API_ANIME_SLUG.replace("{slug}", &self.slug);
 
-        let response = self
-            .client
-            .http
-            .get(url)
-            .bearer_auth(self.client.auth.app_token())
-            .send()
-            .await?;
-
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
-
-        let text = response.text().await?;
-
-        if !text.is_json() {
-            return Err(ApiError::Api(text));
-        }
-
-        let anime: Anime = serde_json::from_str(&text)?;
-
-        Ok((limit.unwrap(), anime))
+        self.client.http.get(url, false).await
     }
 
     pub fn send_blocking(self) -> Result<(RateLimit, Anime), ApiError> {

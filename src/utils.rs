@@ -29,3 +29,35 @@ impl<T> ::std::ops::Deref for LazyLock<T> {
         self.data.get_or_init(self.f)
     }
 }
+
+use dyn_clone::DynClone;
+
+//
+// Cloneable FnOnce closures
+//
+
+pub trait ResponseCb: DynClone {
+    fn call(&self, map: &reqwest::header::HeaderMap);
+}
+
+impl<F> ResponseCb for F
+where
+    F: FnOnce(&reqwest::header::HeaderMap) + 'static + Clone,
+{
+    fn call(&self, map: &reqwest::header::HeaderMap) {
+        self.clone()(map);
+    }
+}
+
+pub trait RequestCb: DynClone {
+    fn call(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder;
+}
+
+impl<F> RequestCb for F
+where
+    F: FnOnce(reqwest::RequestBuilder) -> reqwest::RequestBuilder + 'static + Clone,
+{
+    fn call(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        self.clone()(builder)
+    }
+}

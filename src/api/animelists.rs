@@ -1,4 +1,7 @@
-use std::ops::Deref;
+use std::{
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 
 use chrono::prelude::*;
 use const_format::formatcp;
@@ -8,7 +11,6 @@ use crate::{
     errors::ApiError,
     objects::{Action, AutoScores, ListAnime, ListAnimePut, ListStatus, UserListAnime},
     rate_limit::RateLimit,
-    utils::IsJson as _,
     AnimeScheduleClient, API_URL, RUNTIME,
 };
 
@@ -78,8 +80,8 @@ impl AnimeListsGet {
         }
     }
 
-    pub async fn send(self) -> Result<(RateLimit, UserListAnime), ApiError> {
-        let is_user_id = self.user_id.is_some();
+    pub async fn send(mut self) -> Result<(RateLimit, UserListAnime), ApiError> {
+        let is_self = self.user_id.is_none();
 
         let url = if let Some(user_id) = self.user_id {
             API_ANIMELISTS_USERID.replace("{userId}", &user_id)
@@ -87,37 +89,7 @@ impl AnimeListsGet {
             API_ANIMELISTS.to_owned()
         };
 
-        let response = self
-            .client
-            .http
-            .get(url)
-            .bearer_auth(if is_user_id {
-                // access to another's list
-                self.client.auth.app_token().to_owned()
-            } else {
-                // access to self list
-                self.client
-                    .auth
-                    .access_token()
-                    .ok_or(ApiError::AccessToken)?
-                    .secret()
-                    .clone()
-            })
-            .send()
-            .await?;
-
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
-
-        let text = response.text().await?;
-
-        if !text.is_json() {
-            return Err(ApiError::Api(text));
-        }
-
-        let user_list: UserListAnime = serde_json::from_str(&text)?;
-
-        Ok((limit.unwrap(), user_list))
+        self.client.http.get(url, is_self).await
     }
 
     pub fn send_blocking(self) -> Result<(RateLimit, UserListAnime), ApiError> {
@@ -152,8 +124,8 @@ impl AnimeListsGetRoute {
         self
     }
 
-    pub async fn send(self) -> Result<(RateLimit, ETag, ListAnime), ApiError> {
-        let is_user_id = self.user_id.is_some();
+    pub async fn send(mut self) -> Result<(RateLimit, ETag, ListAnime), ApiError> {
+        let is_self = self.user_id.is_none();
 
         let url = if let Some(user_id) = self.user_id {
             API_ANIMELISTS_USERID_ROUTE
@@ -163,44 +135,25 @@ impl AnimeListsGetRoute {
             API_ANIMELISTS_ROUTE.replace("{route}", &self.route)
         };
 
-        let response = self
-            .client
-            .http
-            .get(url)
-            .bearer_auth(if is_user_id {
-                // access to another's list
-                self.client.auth.app_token().to_owned()
-            } else {
-                // access to self list
-                self.client
-                    .auth
-                    .access_token()
-                    .ok_or(ApiError::AccessToken)?
-                    .secret()
-                    .clone()
-            })
-            .send()
-            .await?;
+        let etag = Arc::new(Mutex::new(None));
 
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
-        let etag = ETag(
-            headers
-                .get("etag")
-                .and_then(|h| h.to_str().ok())
-                .unwrap_or_default()
-                .to_owned(),
-        );
+        let etag_clone = etag.clone();
+        self.client.http.response_cb(move |headers| {
+            let mut lock = etag_clone.lock().unwrap();
 
-        let text = response.text().await?;
+            *lock = Some(ETag(
+                headers
+                    .get("etag")
+                    .and_then(|h| h.to_str().ok())
+                    .unwrap_or_default()
+                    .to_owned(),
+            ));
+        });
 
-        if !text.is_json() {
-            return Err(ApiError::Api(text));
-        }
+        let (limit, listanime) = self.client.http.get(url, is_self).await?;
 
-        let listanime: ListAnime = serde_json::from_str(&text)?;
-
-        Ok((limit.unwrap(), etag, listanime))
+        let mut lock = etag.lock().unwrap();
+        Ok((limit, lock.take().unwrap(), listanime))
     }
 
     pub fn send_blocking(self) -> Result<(RateLimit, ETag, ListAnime), ApiError> {
@@ -251,7 +204,7 @@ impl AnimeListsPut {
         self
     }
 
-    pub async fn send(self) -> Result<RateLimit, ApiError> {
+    pub async fn send(mut self) -> Result<RateLimit, ApiError> {
         let url = if let Some(user_id) = self.user_id {
             API_ANIMELISTS_USERID.replace("{userId}", &user_id)
         } else {
@@ -262,52 +215,31 @@ impl AnimeListsPut {
             return Err(ApiError::Xml);
         };
 
-        // The docs do not say how to do this part
-        // so this was reverse engineered from the site's xml importer
-        // the site uses a different api url for this, but I'm still using
-        // the officially listed api url
-        //
-        // reverse engineer from here:
-        // https://animeschedule.net/users/<your_username>/settings/import-export
-        let part = multipart::Part::bytes(xml.into_bytes())
-            .file_name("list.xml")
-            .mime_str("text/xml")
-            .unwrap();
+        self.client.http.request_cb(move |request| {
+            // The docs do not say how to do this part
+            // so this was reverse engineered from the site's xml importer
+            // the site uses a different api url for this, but I'm still using
+            // the officially listed api url
+            //
+            // reverse engineer from here:
+            // https://animeschedule.net/users/<your_username>/settings/import-export
+            let part = multipart::Part::bytes(xml.clone().into_bytes())
+                .file_name("list.xml")
+                .mime_str("text/xml")
+                .unwrap();
 
-        let mut form = multipart::Form::new();
-        if self.overwrite_mal_list {
-            form = form.text("overwrite-mal-list", "on");
-        }
-        form = form.part("mal-list", part);
+            let mut form = multipart::Form::new();
+            if self.overwrite_mal_list {
+                form = form.text("overwrite-mal-list", "on");
+            }
+            form = form.part("mal-list", part);
 
-        let response = self
-            .client
-            .http
-            .put(url)
-            .bearer_auth(
-                self.client
-                    .auth
-                    .access_token()
-                    .ok_or(ApiError::AccessToken)?
-                    .secret()
-                    .clone(),
-            )
-            .multipart(form)
-            .send()
-            .await?;
+            request.multipart(form)
+        });
 
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
+        let (limit, _) = self.client.http.put::<()>(url, true).await?;
 
-        let is_err = response.status().is_server_error() || response.status().is_client_error();
-
-        let text = response.text().await?;
-
-        if !text.is_empty() || is_err {
-            return Err(ApiError::Api(text));
-        }
-
-        Ok(limit.unwrap())
+        Ok(limit)
     }
 
     pub fn send_blocking(self) -> Result<RateLimit, ApiError> {
@@ -403,7 +335,7 @@ impl AnimeListsPutRoute {
         self
     }
 
-    pub async fn send(self) -> Result<RateLimit, ApiError> {
+    pub async fn send(mut self) -> Result<RateLimit, ApiError> {
         if self.etag.is_none() {
             return Err(ApiError::Etag);
         }
@@ -416,35 +348,15 @@ impl AnimeListsPutRoute {
             API_ANIMELISTS_ROUTE.replace("{route}", &self.route)
         };
 
-        let response = self
-            .client
-            .http
-            .put(url)
-            .header("ETag", self.etag.unwrap())
-            .bearer_auth(
-                self.client
-                    .auth
-                    .access_token()
-                    .ok_or(ApiError::AccessToken)?
-                    .secret()
-                    .clone(),
-            )
-            .json(&self.list)
-            .send()
-            .await?;
+        self.client.http.request_cb(move |request| {
+            request
+                .json(&self.list)
+                .header("ETag", self.etag.as_ref().unwrap())
+        });
 
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
+        let (limit, _) = self.client.http.put::<()>(url, true).await?;
 
-        let is_err = response.status().is_server_error() || response.status().is_client_error();
-
-        let text = response.text().await?;
-
-        if !text.is_empty() || is_err {
-            return Err(ApiError::Api(text));
-        }
-
-        Ok(limit.unwrap())
+        Ok(limit)
     }
 
     pub fn send_blocking(self) -> Result<RateLimit, ApiError> {
@@ -475,7 +387,7 @@ impl AnimeListsDelete {
         self
     }
 
-    pub async fn send(self) -> Result<RateLimit, ApiError> {
+    pub async fn send(mut self) -> Result<RateLimit, ApiError> {
         let Some(route) = self.route else {
             return Err(ApiError::Route);
         };
@@ -488,33 +400,9 @@ impl AnimeListsDelete {
             API_ANIMELISTS_ROUTE.replace("{route}", &route)
         };
 
-        let response = self
-            .client
-            .http
-            .delete(url)
-            .bearer_auth(
-                self.client
-                    .auth
-                    .access_token()
-                    .ok_or(ApiError::AccessToken)?
-                    .secret()
-                    .clone(),
-            )
-            .send()
-            .await?;
+        let (limit, _) = self.client.http.delete::<()>(url, true).await?;
 
-        let headers = response.headers();
-        let limit = RateLimit::new(headers);
-
-        let is_err = response.status().is_server_error() || response.status().is_client_error();
-
-        let text = response.text().await?;
-
-        if !text.is_empty() || is_err {
-            return Err(ApiError::Api(text));
-        }
-
-        Ok(limit.unwrap())
+        Ok(limit)
     }
 
     pub fn send_blocking(self) -> Result<RateLimit, ApiError> {

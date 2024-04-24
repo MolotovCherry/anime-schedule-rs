@@ -28,7 +28,7 @@ client.auth.set_callback(|url, state| async {
 
 // When dealing with access/refresh tokens, please be aware
 // that the site api sets both to 3600
-// if you pass this threashold, you are required to regenerate the tokens
+// if you pass this threshold, you are required to regenerate the tokens
 
 // regenerate tokens from scratch
 client.auth.regenerate().await;

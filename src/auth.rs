@@ -303,11 +303,10 @@ impl Auth {
             .url();
 
         let callback = self.callback.lock().await;
-        let (auth_code, client_state) =
-            match callback(auth_url, CsrfToken::new(state.secret().clone())).await {
-                Ok(v) => v,
-                Err(e) => return Err(TokenError::Callback(e.to_string())),
-            };
+        let (auth_code, client_state) = match callback(auth_url, state.clone()).await {
+            Ok(v) => v,
+            Err(e) => return Err(TokenError::Callback(e.to_string())),
+        };
 
         // ensure state is correct
         if state.secret() != client_state.secret() {

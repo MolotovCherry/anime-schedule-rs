@@ -19,19 +19,15 @@ pub enum ClientError {
     Reqwest(#[from] reqwest::Error),
 }
 
-#[derive(Debug, Clone)]
-pub struct Code(pub String);
-#[derive(Debug, Clone)]
-pub struct State(pub String);
-
 pub type Callback = Box<
     dyn Fn(
             reqwest::Url,
-            State,
+            CsrfToken,
         ) -> Pin<
             Box<
-                dyn Future<Output = Result<(Code, State), Box<dyn std::error::Error>>>
-                    + Send
+                dyn Future<
+                        Output = Result<(AuthorizationCode, CsrfToken), Box<dyn std::error::Error>>,
+                    > + Send
                     + 'static,
             >,
         > + Send
@@ -68,7 +64,7 @@ impl fmt::Debug for Auth {
 }
 
 impl Auth {
-    pub(crate) fn new(
+    pub fn new(
         client_id: &str,
         client_secret: &str,
         app_token: &str,
@@ -125,8 +121,10 @@ impl Auth {
     }
 
     pub async fn set_callback<
-        F: Fn(reqwest::Url, State) -> Fut + Send + 'static,
-        Fut: Future<Output = Result<(Code, State), Box<dyn std::error::Error>>> + 'static + Send,
+        F: Fn(reqwest::Url, CsrfToken) -> Fut + Send + 'static,
+        Fut: Future<Output = Result<(AuthorizationCode, CsrfToken), Box<dyn std::error::Error>>>
+            + 'static
+            + Send,
     >(
         &self,
         f: F,
@@ -136,8 +134,10 @@ impl Auth {
     }
 
     pub fn set_callback_blocking<
-        F: Fn(reqwest::Url, State) -> Fut + Send + 'static,
-        Fut: Future<Output = Result<(Code, State), Box<dyn std::error::Error>>> + 'static + Send,
+        F: Fn(reqwest::Url, CsrfToken) -> Fut + Send + 'static,
+        Fut: Future<Output = Result<(AuthorizationCode, CsrfToken), Box<dyn std::error::Error>>>
+            + 'static
+            + Send,
     >(
         &self,
         f: F,
@@ -303,20 +303,21 @@ impl Auth {
             .url();
 
         let callback = self.callback.lock().await;
-        let (res_code, res_state) = match callback(auth_url, State(state.secret().clone())).await {
-            Ok(v) => v,
-            Err(e) => return Err(TokenError::Callback(e.to_string())),
-        };
+        let (auth_code, client_state) =
+            match callback(auth_url, CsrfToken::new(state.secret().clone())).await {
+                Ok(v) => v,
+                Err(e) => return Err(TokenError::Callback(e.to_string())),
+            };
 
         // ensure state is correct
-        if state.secret() != &res_state.0 {
+        if state.secret() != client_state.secret() {
             return Err(TokenError::StateMismatch);
         }
 
         // now get access token
         let Ok(token) = self
             .client
-            .exchange_code(AuthorizationCode::new(res_code.0))
+            .exchange_code(auth_code)
             .set_pkce_verifier(pkce_verifier)
             .request_async(async_http_client)
             .await

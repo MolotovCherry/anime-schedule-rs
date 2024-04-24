@@ -94,7 +94,7 @@ impl Auth {
         client_secret: ClientSecret,
         app_token: AppToken,
         redirect_uri: RedirectUrl,
-    ) -> Result<Self, TokenError> {
+    ) -> Self {
         let client = BasicClient::new(
             client_id.clone(),
             Some(client_secret.clone()),
@@ -104,7 +104,7 @@ impl Auth {
         .set_redirect_uri(redirect_uri.clone())
         .set_revocation_uri(RevocationUrl::new(format!("{API_URL}/oauth2/revoke")).unwrap());
 
-        let slf = Self {
+        Self {
             client,
             app_token,
             access_token: Mutex::new(None),
@@ -115,9 +115,7 @@ impl Auth {
             callback: tokio::sync::Mutex::new(Box::new(|_, _| {
                 unimplemented!("oauth2 callback not implemented")
             })),
-        };
-
-        Ok(slf)
+        }
     }
 
     pub fn app_token(&self) -> AppToken {

@@ -23,7 +23,7 @@ client.auth.set_callback(|url, state| async {
     // regenerate api will fail due to security check
 
     // get the code / state and return it
-    (Code("".to_owned()), State("".to_owned()))
+    (AuthorizationCode::new("".to_owned()), CsrfToken::new("".to_owned()))
 });
 
 // When dealing with access/refresh tokens, please be aware

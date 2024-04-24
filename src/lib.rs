@@ -8,7 +8,10 @@ mod utils;
 
 use std::sync::Arc;
 
-pub use oauth2::{AccessToken, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RefreshToken};
+pub use oauth2::{
+    AccessToken, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, RefreshToken,
+    Scope,
+};
 use reqwest::ClientBuilder;
 use tokio::runtime::{Builder, Runtime};
 
@@ -22,6 +25,7 @@ use crate::{
 };
 
 use self::api_request::ApiRequest;
+pub use auth::AppToken;
 
 const API_URL: &str = "https://animeschedule.net/api/v3";
 
@@ -41,10 +45,10 @@ pub struct AnimeScheduleClient {
 impl AnimeScheduleClient {
     /// Create client
     pub fn new(
-        client_id: &str,
-        client_secret: &str,
-        app_token: &str,
-        redirect_uri: &str,
+        client_id: ClientId,
+        client_secret: ClientSecret,
+        app_token: AppToken,
+        redirect_uri: RedirectUrl,
     ) -> Result<Self, ClientError> {
         Self::new_with(
             client_id,
@@ -65,10 +69,10 @@ impl AnimeScheduleClient {
 
     /// Create client with custom reqwest settings (user agent for example)
     pub fn new_with(
-        client_id: &str,
-        client_secret: &str,
-        app_token: &str,
-        redirect_uri: &str,
+        client_id: ClientId,
+        client_secret: ClientSecret,
+        app_token: AppToken,
+        redirect_uri: RedirectUrl,
         builder_cb: impl Fn(ClientBuilder) -> Result<reqwest::Client, reqwest::Error>,
     ) -> Result<Self, ClientError> {
         let builder = reqwest::Client::builder();

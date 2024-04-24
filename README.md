@@ -11,7 +11,7 @@ For an in depth review of their api and which endpoints require oauth2, see http
 When using an oauth2 endpoint, you must have created an oauth2 token for the user. You can do so using the included token api
 ```rust
 // if you want to create your token with the full scope, add scope before generating a token
-client.auth.add_scope("animelist");
+client.auth.add_scope(Scope::new("animelist"));
 
 // this requires a webserver to receive the oauth code+state for regenerate
 // set your own custom callback for production usage
@@ -41,8 +41,8 @@ client.auth.refresh_token().await;
 client.auth.try_refresh().await;
 
 // you can also set the access/refresh token manually if you need to
-client.auth.set_refresh_token(Some("token"));
-client.auth.set_access_token(Some("token"));
+client.auth.set_refresh_token(Some(RefreshToke::new("token")));
+client.auth.set_access_token(Some(AccessToken::new("token")));
 // set the time from Instant::now() after which access token expires
 client.auth.set_expires_in(Some(Duration::from_secs(3600)));
 

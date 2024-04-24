@@ -6,6 +6,7 @@ use oauth2::{
     ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, RefreshToken, RevocationUrl,
     Scope, TokenResponse as _, TokenUrl,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{errors::TokenError, API_URL, RUNTIME};
 
@@ -17,6 +18,30 @@ pub enum ClientError {
     Token(#[from] TokenError),
     #[error("{0}")]
     Reqwest(#[from] reqwest::Error),
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct AppToken(String);
+
+impl AppToken {
+    pub fn new(s: String) -> Self {
+        Self(s)
+    }
+
+    /// Get the secret contained within this `AppToken`.
+    ///
+    /// # Security Warning
+    ///
+    /// Leaking this value may compromise the security of the OAuth2 flow.
+    pub fn secret(&self) -> &String {
+        &self.0
+    }
+}
+
+impl std::fmt::Debug for AppToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "AppToken([redacted])")
+    }
 }
 
 pub type Callback = Box<
@@ -37,7 +62,7 @@ pub type Callback = Box<
 /// Note that both access and refresh tokens are only valid for 3600 after issuance
 pub struct Auth {
     client: BasicClient,
-    app_token: String,
+    app_token: AppToken,
     access_token: Mutex<Option<AccessToken>>,
     refresh_token: Mutex<Option<RefreshToken>>,
     // time in utc seconds when access and refresh token will expire
@@ -65,23 +90,23 @@ impl fmt::Debug for Auth {
 
 impl Auth {
     pub fn new(
-        client_id: &str,
-        client_secret: &str,
-        app_token: &str,
-        redirect_uri: &str,
+        client_id: ClientId,
+        client_secret: ClientSecret,
+        app_token: AppToken,
+        redirect_uri: RedirectUrl,
     ) -> Result<Self, TokenError> {
         let client = BasicClient::new(
-            ClientId::new(client_id.to_owned()),
-            Some(ClientSecret::new(client_secret.to_owned())),
+            client_id.clone(),
+            Some(client_secret.clone()),
             AuthUrl::new(format!("{API_URL}/oauth2/authorize")).unwrap(),
             Some(TokenUrl::new(format!("{API_URL}/oauth2/token")).unwrap()),
         )
-        .set_redirect_uri(RedirectUrl::new(redirect_uri.to_owned())?)
+        .set_redirect_uri(redirect_uri.clone())
         .set_revocation_uri(RevocationUrl::new(format!("{API_URL}/oauth2/revoke")).unwrap());
 
         let slf = Self {
             client,
-            app_token: app_token.to_owned(),
+            app_token,
             access_token: Mutex::new(None),
             refresh_token: Mutex::new(None),
             expires_at: Mutex::new(None),
@@ -95,18 +120,18 @@ impl Auth {
         Ok(slf)
     }
 
-    pub fn app_token(&self) -> &str {
-        &self.app_token
+    pub fn app_token(&self) -> AppToken {
+        self.app_token.clone()
     }
 
-    pub fn set_refresh_token(&self, token: Option<&str>) {
+    pub fn set_refresh_token(&self, token: Option<RefreshToken>) {
         let mut lock = self.refresh_token.lock().unwrap();
-        *lock = token.map(|t| RefreshToken::new(t.to_owned()));
+        *lock = token;
     }
 
-    pub fn set_access_token(&self, token: &str) {
+    pub fn set_access_token(&self, token: AccessToken) {
         let mut lock = self.access_token.lock().unwrap();
-        *lock = Some(AccessToken::new(token.to_owned()));
+        *lock = Some(token);
     }
 
     /// Updates the access token expiry time
@@ -115,9 +140,9 @@ impl Auth {
         *lock = duration.map(|d| Utc::now().timestamp() as u64 + d.as_secs());
     }
 
-    pub fn add_scope(&self, scope: &str) {
+    pub fn add_scope(&self, scope: Scope) {
         let mut lock = self.scopes.lock().unwrap();
-        lock.push(Scope::new(scope.to_owned()));
+        lock.push(scope);
     }
 
     pub async fn set_callback<

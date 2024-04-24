@@ -120,7 +120,7 @@ impl ApiRequest {
                     .secret(),
             )
         } else {
-            request.bearer_auth(self.auth.app_token())
+            request.bearer_auth(self.auth.app_token().secret())
         };
 
         let request = if let Some(cb) = self.request_cb.take() {

@@ -10,7 +10,7 @@ For an in depth review of their api and which endpoints require oauth2, see http
 
 When using an oauth2 endpoint, you must have created an oauth2 token for the user. You can do so using the included token api
 ```rust
-let client = ClientBuilder::new().client_id("your-id").client_secret("secret").access_token("your-token").redirect_url("your-url").build().unwrap();
+let client = AnimeScheduleClientBuilder::new().client_id("your-id").client_secret("secret").access_token("your-token").redirect_url("your-url").build().unwrap();
 
 // if you want to create your token with the full scope, add scope before generating a token
 client.auth.add_scope(Scope::new("animelist"));

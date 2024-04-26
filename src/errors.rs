@@ -1,7 +1,10 @@
 use http::StatusCode;
+use thiserror::Error;
+
+use crate::auth::ClientError;
 
 #[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum TokenError {
     #[error("failed to revoke token")]
     Revoke(String),
@@ -22,7 +25,7 @@ pub enum TokenError {
 }
 
 #[non_exhaustive]
-#[derive(thiserror::Error, Debug)]
+#[derive(Debug, Error)]
 pub enum ApiError {
     #[error("{0}")]
     ParseError(#[from] serde_json::Error),
@@ -40,4 +43,15 @@ pub enum ApiError {
     Route,
     #[error("api requires user id")]
     UserId,
+}
+
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum BuilderError {
+    #[error("field '{0}' is required")]
+    Builder(String),
+    #[error("{0}")]
+    Client(#[from] ClientError),
+    #[error("{0}")]
+    Reqwest(#[from] reqwest::Error),
 }

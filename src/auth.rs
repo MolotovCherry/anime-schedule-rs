@@ -59,15 +59,46 @@ pub type Callback = Box<
         + 'static,
 >;
 
+/// A (de)serializable version of [Auth]. Only serializes the access token and its expiry.
+/// This can be converted back to [Auth] if you provide your id, secret, app_token, and redirect url.
+///
+/// Callbacks are not saved or converted back. You must set it again manually.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthTokens {
+    pub access_token: AccessToken,
+    pub refresh_token: RefreshToken,
+    pub expires_at: u64,
+}
+
+impl AuthTokens {
+    pub fn into_auth(
+        self,
+        client_id: ClientId,
+        client_secret: ClientSecret,
+        app_token: AppToken,
+        redirect_url: RedirectUrl,
+    ) -> Auth {
+        let auth = Auth::new(client_id, client_secret, app_token, redirect_url);
+
+        auth.set_access_token_unchecked(self.access_token);
+        auth.set_refresh_token_unchecked(self.refresh_token);
+        auth.set_expires_at_unchecked(self.expires_at);
+
+        auth
+    }
+}
+
+/// Manages oauth2 and client id, client secret, and app_token
+///
 /// Note that both access and refresh tokens are only valid for 3600 after issuance
 pub struct Auth {
     client: BasicClient,
     app_token: AppToken,
-    access_token: Mutex<Option<AccessToken>>,
-    refresh_token: Mutex<Option<RefreshToken>>,
+    access_token: Mutex<AccessToken>,
+    refresh_token: Mutex<RefreshToken>,
     // time in utc seconds when access and refresh token will expire
     // current api expiration is now + 3600
-    expires_at: Mutex<Option<u64>>,
+    expires_at: Mutex<u64>,
     scopes: Mutex<Vec<Scope>>,
     callback: tokio::sync::Mutex<Callback>,
 }
@@ -107,9 +138,9 @@ impl Auth {
         Self {
             client,
             app_token,
-            access_token: Mutex::new(None),
-            refresh_token: Mutex::new(None),
-            expires_at: Mutex::new(None),
+            access_token: Mutex::new(AccessToken::new(String::new())),
+            refresh_token: Mutex::new(RefreshToken::new(String::new())),
+            expires_at: Mutex::new(0),
             scopes: Mutex::new(Vec::new()),
 
             callback: tokio::sync::Mutex::new(Box::new(|_, _| {
@@ -118,31 +149,70 @@ impl Auth {
         }
     }
 
+    /// Return client tokens to save user creds that can be serialized/deserialized.
+    /// serializes access/refresh tokens, and their expiry
+    /// Does not serialize client_id, client_secret, scopes, or callback
+    pub fn to_tokens(&self) -> AuthTokens {
+        let at = self.access_token();
+        let rt = self.refresh_token();
+        let ea = self.expires_at();
+
+        AuthTokens {
+            access_token: at,
+            refresh_token: rt,
+            expires_at: ea,
+        }
+    }
+
+    /// Get the app token that was saved into this.
     pub fn app_token(&self) -> AppToken {
         self.app_token.clone()
     }
 
-    pub fn set_refresh_token(&self, token: Option<RefreshToken>) {
+    /// Manually set the refresh token. This is handled automatically by [`Self::refresh()`], [`Self::refresh_blocking()`], [`Self::regenerate()`], and [`Self::regenerate_blocking()`].
+    ///
+    /// This method is safe in terms of no UB, however it is unchecked because it is possible to cause inconsistent state.
+    ///
+    /// Caller agrees to also set the correct access token expiry time as well.
+    pub fn set_refresh_token_unchecked(&self, token: RefreshToken) {
         let mut lock = self.refresh_token.lock().unwrap();
         *lock = token;
     }
 
-    pub fn set_access_token(&self, token: AccessToken) {
+    /// Manually set the access token. This is handled automatically by [`Self::refresh()`], [`Self::refresh_blocking()`], [`Self::regenerate()`], and [`Self::regenerate_blocking()`].
+    ///
+    /// This method is safe in terms of no UB, however it is unchecked because it is possible to cause inconsistent state.
+    ///
+    /// Caller agrees to also set the correct access token expiry time as well.
+    pub fn set_access_token_unchecked(&self, token: AccessToken) {
         let mut lock = self.access_token.lock().unwrap();
-        *lock = Some(token);
+        *lock = token;
     }
 
     /// Updates the access token expiry time
-    pub fn set_expires_in(&self, duration: Option<Duration>) {
+    pub fn set_expires_in_unchecked(&self, duration: Duration) {
         let mut lock = self.expires_at.lock().unwrap();
-        *lock = duration.map(|d| Utc::now().timestamp() as u64 + d.as_secs());
+        *lock = Utc::now().timestamp() as u64 + duration.as_secs();
     }
 
+    /// Updates the access token expiry time
+    pub fn set_expires_at_unchecked(&self, expiry: u64) {
+        let mut lock = self.expires_at.lock().unwrap();
+        *lock = expiry;
+    }
+
+    /// Add an oauth2 scope. Use this before you generate a new token.
     pub fn add_scope(&self, scope: Scope) {
         let mut lock = self.scopes.lock().unwrap();
         lock.push(scope);
     }
 
+    /// Set the callback used when running [`Self::regenerate()`].
+    /// This passes in a [`CsrfToken`] representing the client state this callback is looking for.
+    /// You can know which client request is the correct client because the states match each other.
+    ///
+    /// You may return success from this function ONLY if the state is correct.
+    /// You may want to make this timeout so [`Self::regenerate()`] doesn't block forever.
     pub async fn set_callback<
         F: Fn(reqwest::Url, CsrfToken) -> Fut + Send + 'static,
         Fut: Future<Output = Result<(AuthorizationCode, CsrfToken), Box<dyn std::error::Error>>>
@@ -170,83 +240,70 @@ impl Auth {
 
     /// Is the access token valid?
     ///
-    /// This checks that the access token exists and its expiry is still valid.
+    /// This checks that the access token's expiry is still valid.
     ///
     /// Unless you're doing manual setup, this will correctly represent whether it's valid or not
     ///
     /// (Manual setup is, for example, manually setting the access token)
     pub fn is_valid(&self) -> bool {
-        let has_access_token = self.access_token.lock().unwrap().is_some();
-
-        let is_active = self
-            .expires_at
-            .lock()
-            .unwrap()
-            .is_some_and(|t| (Utc::now().timestamp() as u64) < t);
-
-        has_access_token && is_active
+        (Utc::now().timestamp() as u64) < *self.expires_at.lock().unwrap()
     }
 
     /// Is the refresh token valid?
     ///
-    /// This checks that the refresh token exists and its expiry is still valid.
+    /// This checks that the refresh token's expiry is still valid.
     ///
     /// Unless you're doing manual setup, this will correctly represent whether it's valid or not
     ///
     /// (Manual setup is, for example, manually setting the refresh token)
     pub fn is_refresh_valid(&self) -> bool {
-        let has_refresh_token = self.refresh_token.lock().unwrap().is_some();
-
-        let is_refresh_active = self
-            .expires_at
-            .lock()
-            .unwrap()
-            .is_some_and(|t| (Utc::now().timestamp() as u64) < t);
-
-        has_refresh_token && is_refresh_active
+        (Utc::now().timestamp() as u64) < *self.expires_at.lock().unwrap()
     }
 
+    /// Revoke the access token
     pub async fn revoke_token(&self) -> Result<(), TokenError> {
         let token = self.access_token.lock().unwrap().clone();
-        if let Some(token) = token {
-            let req = self
-                .client
-                .revoke_token(oauth2::StandardRevocableToken::AccessToken(token))
-                .map_err(|e| TokenError::Revoke(e.to_string()))?;
 
-            req.request_async(async_http_client)
-                .await
-                .map_err(|e| TokenError::Revoke(e.to_string()))?;
-        }
+        let req = self
+            .client
+            .revoke_token(oauth2::StandardRevocableToken::AccessToken(token))
+            .map_err(|e| TokenError::Revoke(e.to_string()))?;
+
+        req.request_async(async_http_client)
+            .await
+            .map_err(|e| TokenError::Revoke(e.to_string()))?;
 
         Ok(())
     }
 
+    /// Revoke the access token
     pub fn revoke_token_blocking(&self) -> Result<(), TokenError> {
         RUNTIME.block_on(self.revoke_token())
     }
 
+    /// Revoke the refresh token
     pub async fn revoke_refresh_token(&self) -> Result<(), TokenError> {
         let token = self.refresh_token.lock().unwrap().clone();
-        if let Some(token) = token {
-            let req = self
-                .client
-                .revoke_token(oauth2::StandardRevocableToken::RefreshToken(token.clone()))
-                .map_err(|e| TokenError::Revoke(e.to_string()))?;
 
-            req.request_async(async_http_client)
-                .await
-                .map_err(|e| TokenError::Revoke(e.to_string()))?;
-        }
+        let req = self
+            .client
+            .revoke_token(oauth2::StandardRevocableToken::RefreshToken(token.clone()))
+            .map_err(|e| TokenError::Revoke(e.to_string()))?;
+
+        req.request_async(async_http_client)
+            .await
+            .map_err(|e| TokenError::Revoke(e.to_string()))?;
 
         Ok(())
     }
 
+    /// Revoke the refresh token
     pub fn revoke_refresh_token_blocking(&self) -> Result<(), TokenError> {
         RUNTIME.block_on(self.revoke_refresh_token())
     }
 
     /// Automatically regnerate token
+    ///
     /// Does nothing if refresh token is not valid
     ///
     /// Note that both access and refresh tokens are only valid for 3600
@@ -261,51 +318,50 @@ impl Auth {
         Ok(())
     }
 
+    /// Automatically regnerate token
+    ///
+    /// Does nothing if refresh token is not valid
+    ///
+    /// Note that both access and refresh tokens are only valid for 3600
     pub fn try_refresh_blocking(&self) -> Result<(), TokenError> {
         RUNTIME.block_on(self.try_refresh())
     }
 
-    /// get access token and expiry time in utc
-    pub fn access_token(&self) -> Option<AccessToken> {
+    /// Get access token
+    pub fn access_token(&self) -> AccessToken {
         self.access_token.lock().unwrap().clone()
     }
 
-    /// get refresh token
-    pub fn refresh_token(&self) -> Option<RefreshToken> {
+    /// Get refresh token
+    pub fn refresh_token(&self) -> RefreshToken {
         self.refresh_token.lock().unwrap().clone()
     }
 
-    /// time in utc seconds when access token expires
-    pub fn expires_at(&self) -> Option<u64> {
+    /// time in utc seconds when access and refresh token expires
+    pub fn expires_at(&self) -> u64 {
         *self.expires_at.lock().unwrap()
     }
 
     /// exchange refresh token for new access token
     pub async fn refresh(&self) -> Result<(), TokenError> {
         let token = self.refresh_token.lock().unwrap().clone();
-        if let Some(refresh_token) = token {
-            let token = self
-                .client
-                .exchange_refresh_token(&refresh_token)
-                .request_async(async_http_client)
-                .await
-                .map_err(|e| TokenError::OAuth2(e.to_string()))?;
 
-            let mut lock = self.access_token.lock().unwrap();
-            *lock = Some(token.access_token().clone());
+        let token = self
+            .client
+            .exchange_refresh_token(&token)
+            .request_async(async_http_client)
+            .await
+            .map_err(|e| TokenError::OAuth2(e.to_string()))?;
 
-            let mut lock = self.refresh_token.lock().unwrap();
-            *lock = token.refresh_token().cloned();
+        self.set_access_token_unchecked(token.access_token().clone());
 
-            let mut lock = self.expires_at.lock().unwrap();
-            *lock = token
-                .expires_in()
-                .map(|d| (Utc::now().timestamp() as u64) + d.as_secs());
+        self.set_refresh_token_unchecked(token.refresh_token().unwrap().clone());
 
-            Ok(())
-        } else {
-            Err(TokenError::Refresh)
-        }
+        self.set_expires_at_unchecked(
+            (Utc::now().timestamp() as u64) + token.expires_in().unwrap().as_secs(),
+        );
+
+        Ok(())
     }
 
     pub fn refresh_blocking(&self) -> Result<(), TokenError> {
@@ -347,16 +403,13 @@ impl Auth {
             return Err(TokenError::Access);
         };
 
-        let mut expires_at = self.expires_at.lock().unwrap();
-        *expires_at = token
-            .expires_in()
-            .map(|d| Utc::now().timestamp() as u64 + d.as_secs());
+        self.set_expires_at_unchecked(
+            Utc::now().timestamp() as u64 + token.expires_in().unwrap().as_secs(),
+        );
 
-        let mut access_token = self.access_token.lock().unwrap();
-        *access_token = Some(token.access_token().clone());
+        self.set_access_token_unchecked(token.access_token().clone());
 
-        let mut refresh_token = self.refresh_token.lock().unwrap();
-        *refresh_token = token.refresh_token().cloned();
+        self.set_refresh_token_unchecked(token.refresh_token().unwrap().clone());
 
         Ok(())
     }

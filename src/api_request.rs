@@ -113,12 +113,7 @@ impl ApiRequest {
         };
 
         let request = if is_auth {
-            request.bearer_auth(
-                self.auth
-                    .access_token()
-                    .ok_or(ApiError::AccessTokenError)?
-                    .secret(),
-            )
+            request.bearer_auth(self.auth.access_token().secret())
         } else {
             request.bearer_auth(self.auth.app_token().secret())
         };

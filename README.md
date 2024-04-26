@@ -10,6 +10,8 @@ For an in depth review of their api and which endpoints require oauth2, see http
 
 When using an oauth2 endpoint, you must have created an oauth2 token for the user. You can do so using the included token api
 ```rust
+let client = ClientBuilder::new().client_id("your-id").client_secret("secret").access_token("your-token").redirect_url("your-url").build().unwrap();
+
 // if you want to create your token with the full scope, add scope before generating a token
 client.auth.add_scope(Scope::new("animelist"));
 
@@ -41,10 +43,10 @@ client.auth.refresh_token().await;
 client.auth.try_refresh().await;
 
 // you can also set the access/refresh token manually if you need to
-client.auth.set_refresh_token(Some(RefreshToke::new("token")));
-client.auth.set_access_token(Some(AccessToken::new("token")));
+client.auth.set_refresh_token_unchecked(RefreshToke::new("token"));
+client.auth.set_access_token_unchecked(AccessToken::new("token"));
 // set the time from Instant::now() after which access token expires
-client.auth.set_expires_in(Some(Duration::from_secs(3600)));
+client.auth.set_expires_in_unchecked(Duration::from_secs(3600));
 
 // use the api
 client.anime().get().q("query").genres(&["action"]).send().await;
@@ -59,6 +61,8 @@ client.animelists().put().route("foo").etag("etag").episodes_seen(5).note("I lov
 // this api follows a builder pattern, and follows their api
 // it should be relatively intuitive to use
 ```
+
+Warning: This crate may change api between versions before 1.0 as the api is fleshed out.
 
 If you see any bugs, please report them. Mostly these may be instances "null" appears in the api but was assumed to always exist in the deserialized types. While this was quickly tested with a bit of data to hopefully get a complete picture, this is not guaranteed to be always correct. Other than that, it should be feature complete and working.
 

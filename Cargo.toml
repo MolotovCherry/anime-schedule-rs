@@ -1,13 +1,13 @@
 [package]
 name = "animeschedule"
-version = "0.1.10"
+version = "0.1.11"
 edition = "2021"
 authors = ["Cherry"]
 license = "MIT"
 description = "A complete async/sync typed AnimeSchedule api"
 repository = "https://github.com/MolotovCherry/anime-schedule-rs"
 categories = ["api-bindings"]
-keywords = ["api", "anime", "anime-schedule", "air", "episode"]
+keywords = ["api", "anime", "anime-schedule", "airing", "timetable"]
 
 [dependencies]
 serde = { version = "1.0.198", features = ["derive"] }

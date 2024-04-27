@@ -70,6 +70,16 @@ pub struct AuthTokens {
     pub expires_at: u64,
 }
 
+impl Default for AuthTokens {
+    fn default() -> Self {
+        Self {
+            access_token: AccessToken::new(String::new()),
+            refresh_token: RefreshToken::new(String::new()),
+            expires_at: 0,
+        }
+    }
+}
+
 impl AuthTokens {
     pub fn to_auth(
         &self,

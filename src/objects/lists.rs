@@ -7,7 +7,7 @@ use strum::IntoStaticStr;
 
 use super::datetime_opt;
 
-#[derive(Debug, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(transparent)]
 pub struct Route(pub String);
 impl Deref for Route {
@@ -18,7 +18,7 @@ impl Deref for Route {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UserListAnime {
     pub user_id: String,
@@ -26,7 +26,7 @@ pub struct UserListAnime {
     pub custom_lists: Option<Vec<CustomList>>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ListAnime {
     /// The unique URL slug of the anime.
@@ -110,7 +110,7 @@ pub struct AutoScore {
     pub score: u8,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CustomList {
     /// The name of the custom list.
     pub name: String,

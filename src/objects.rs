@@ -5,13 +5,13 @@ mod lists;
 use std::ops::{Deref, DerefMut};
 
 use chrono::{DateTime, FixedOffset};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 pub use account::*;
 pub use anime::*;
 pub use lists::*;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 pub struct Html(pub String);
 

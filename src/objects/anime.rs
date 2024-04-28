@@ -6,7 +6,7 @@ use strum::IntoStaticStr;
 
 use super::{datetime_opt, Html};
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimePage {
     pub page: u64,
@@ -19,7 +19,7 @@ pub struct AnimePage {
 ///
 /// japan datetimes are in japan fixed offset timezone. the rest are utc
 /// (you deal with utc ones according to actual date)
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Anime {
     /// The unique ID.
@@ -101,7 +101,7 @@ pub struct Anime {
     pub websites: Websites,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Season {
     pub title: String,
@@ -113,7 +113,7 @@ pub struct Season {
     pub route: String,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(transparent)]
 pub struct Categories(pub Vec<Category>);
 impl Deref for Categories {
@@ -129,14 +129,14 @@ impl DerefMut for Categories {
     }
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Category {
     pub name: String,
     /// The unique URL slug.
     pub route: String,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Stats {
     /// The average score from 1 to a 100. The score is weighted with the formula
@@ -156,7 +156,7 @@ pub struct Stats {
 }
 
 /// Anime airing status
-#[derive(Deserialize, Clone, IntoStaticStr, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, IntoStaticStr, Debug, PartialEq)]
 pub enum AirStatus {
     Upcoming,
     Ongoing,
@@ -175,7 +175,7 @@ pub enum AirStatusQuery {
 
 /// Whether an anime airs multiple times a week and which days specifically.
 /// Used only if it airs multiple times a week.
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Days {
     pub sunday: bool,
     pub monday: bool,
@@ -186,7 +186,7 @@ pub struct Days {
     pub saturday: bool,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Names {
     pub romaji: Option<String>,
     pub english: Option<String>,
@@ -196,7 +196,7 @@ pub struct Names {
 }
 
 /// All related anime. The strings represent their route/slug.
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Relations {
     pub sequels: Option<Vec<String>>,
@@ -208,7 +208,7 @@ pub struct Relations {
     pub spinoffs: Option<Vec<String>>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Websites {
     pub official: Option<String>,
@@ -227,7 +227,7 @@ pub struct Websites {
     pub netflix: Option<String>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Streams {
     pub crunchyroll: Option<String>,
     pub funimation: Option<String>,
@@ -252,7 +252,7 @@ pub enum StreamsQuery {
     Netflix,
 }
 
-#[derive(Deserialize, Clone, IntoStaticStr, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, IntoStaticStr, Debug, PartialEq)]
 pub enum Month {
     January,
     February,
@@ -268,14 +268,14 @@ pub enum Month {
     December,
 }
 
-#[derive(Deserialize, Clone, IntoStaticStr, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, IntoStaticStr, Debug, PartialEq)]
 pub enum DelayedTimetable {
     Delayed,
     #[serde(rename = "On Break")]
     OnBreak,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(transparent)]
 pub struct Timetables(pub Vec<TimetableAnime>);
 impl Deref for Timetables {
@@ -291,7 +291,7 @@ impl DerefMut for Timetables {
     }
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct TimetableAnime {
     /// The display title. Separate from other names and used as a high-priority name in some cases.
@@ -337,7 +337,7 @@ pub struct TimetableAnime {
     pub airing_status: AiringStatus,
 }
 
-#[derive(Deserialize, Clone, IntoStaticStr, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, IntoStaticStr, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum AirType {
     Raw,
@@ -356,7 +356,7 @@ pub enum AirTypeQuery {
 }
 
 /// Immediate timetable status
-#[derive(Deserialize, Clone, IntoStaticStr, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, IntoStaticStr, Debug, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum AiringStatus {
     Airing,
